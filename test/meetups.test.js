@@ -1,27 +1,29 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createMeetupsSource, normalizeLumaEntries } from "../server/meetups.js";
+import { createMeetupsSource, normalizeMeetups } from "../server/meetups.js";
 
-const entry = (over = {}, evOver = {}) => ({
-  guest_count: 12,
-  hosts: [{ name: "Ada" }],
-  event: {
-    api_id: "evt-1",
-    name: "Omarchy Prague",
-    url: "v9bjvpbu",
-    start_at: "2026-09-29T16:00:00.000Z",
-    end_at: "2026-09-29T19:00:00.000Z",
-    timezone: "Europe/Prague",
-    location_type: "offline",
-    geo_address_info: { city: "Prague", country: "Czechia" },
-    coordinate: { latitude: 50.087654, longitude: 14.421234 },
-    ...evOver,
-  },
+// Shape of omacom/omarchy-site src/data/meetups.json.
+const event = (over = {}) => ({
+  id: "evt-1",
+  title: "Omarchy Prague",
+  url: "https://luma.com/v9bjvpbu",
+  start: "2026-09-29T16:00:00.000Z",
+  end: "2026-09-29T19:00:00.000Z",
+  timezone: "Europe/Prague",
+  address: "Somewhere 1, Prague",
+  city: "Prague",
+  country: "CZ",
+  online: false,
+  geo: { lat: 50.087654, lon: 14.421234 },
+  hosts: ["Ada"],
+  cover: "/images/meetups/evt-1-full.webp",
+  coverWidth: 800,
+  coverHeight: 800,
   ...over,
 });
 
-test("normalizes Luma entries", () => {
-  const [m] = normalizeLumaEntries([entry(), { event: null }, { event: { api_id: "x" } }]);
+test("normalizes the omarchy.org listing", () => {
+  const [m] = normalizeMeetups({ events: [event(), null, { id: "x" }, event({ id: "bad", start: "soon" })] });
   assert.deepEqual(m, {
     id: "evt-1",
     name: "Omarchy Prague",
@@ -30,48 +32,52 @@ test("normalizes Luma entries", () => {
     end: "2026-09-29T19:00:00.000Z",
     timezone: "Europe/Prague",
     city: "Prague",
-    region: null,
-    country: "Czechia",
+    country: "CZ",
     lat: 50.088,
     lon: 14.421,
+    approximate: false,
     near: null,
     online: false,
-    guests: 12,
-    cover: null,
     hosts: ["Ada"],
+    cover: "https://omarchy.org/images/meetups/evt-1-full.webp",
   });
+  assert.equal(normalizeMeetups({ events: [event({ url: "javascript:alert(1)" })] })[0].url, null);
 });
 
-test("places coordinate-less events by timezone without inventing a city", () => {
-  const [a, b, c] = normalizeLumaEntries([
-    entry({}, { api_id: "a", coordinate: null, geo_address_info: null, timezone: "America/Sao_Paulo", location_type: "youtube" }),
-    entry({}, { api_id: "b", coordinate: null, geo_address_info: null, timezone: "Africa/Abidjan", location_type: "meet" }),
-    entry({}, { api_id: "c", coordinate: null, geo_address_info: null, timezone: "Mars/Olympus" }),
-  ]);
-  assert.equal(a.near, "São Paulo");
-  assert.equal(a.city, null);
-  assert.equal(a.online, true);
-  assert.ok(Math.abs(a.lat + 23.55) < 0.01);
-  assert.equal(b.near, "Abidjan");
+test("keeps approximate places and falls back to the timezone city", () => {
+  const [a, b, c] = normalizeMeetups({
+    events: [
+      event({ id: "a", geo: { lat: -23.55, lon: -46.63, approximate: true } }),
+      event({ id: "b", start: "2026-10-01T00:00:00.000Z", geo: null, city: null, timezone: "America/Sao_Paulo" }),
+      event({ id: "c", start: "2026-10-02T00:00:00.000Z", geo: { lat: null, lon: null }, timezone: "Mars/Olympus" }),
+    ],
+  });
+  assert.equal(a.approximate, true);
+  assert.equal(a.near, null);
+  assert.equal(b.near, "São Paulo");
+  assert.equal(b.city, null);
+  assert.ok(Math.abs(b.lat + 23.55) < 0.01);
   assert.equal(c.lat, null);
 });
 
-test("merges future+past, caches, and serves stale data when Luma fails", async () => {
+test("caches, serves stale data when the listing fails, and backs off", async () => {
   let calls = 0;
   let fail = false;
-  const fetch = async (url) => {
+  const fetch = async () => {
     calls++;
     if (fail) throw new Error("offline");
-    const past = url.includes("period=past");
-    return { ok: true, json: async () => ({ entries: [entry({}, past ? { api_id: "p", start_at: "2026-01-01T00:00:00.000Z" } : {})] }) };
+    return { ok: true, json: async () => ({ events: [event(), event({ id: "p", start: "2026-01-01T00:00:00.000Z" })] }) };
   };
   const get = createMeetupsSource({ fetch, ttl: 0 });
   const first = await get();
   assert.deepEqual(first.meetups.map((m) => m.id), ["p", "evt-1"]);
   fail = true;
   assert.deepEqual((await get()).meetups.map((m) => m.id), ["p", "evt-1"]);
-  assert.equal(calls, 4);
+  assert.equal(calls, 2);
 
-  const cold = createMeetupsSource({ fetch: async () => ({ ok: false, status: 503 }) });
+  let coldCalls = 0;
+  const cold = createMeetupsSource({ fetch: async () => (coldCalls++, { ok: false, status: 503 }) });
   await assert.rejects(cold());
+  await assert.rejects(cold());
+  assert.equal(coldCalls, 1, "a failed upstream is not hit again on every request");
 });

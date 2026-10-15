@@ -75,5 +75,5 @@ test("serves the page and theme, blocks traversal", async () => {
 test("serves meetups", async () => {
   const data = await fetch(`${base}/api/meetups`).then((r) => r.json());
   assert.equal(data.meetups[0].name, "Omarchy Prague");
-  assert.equal(data.source, "https://luma.com/omarchy");
+  assert.equal(data.source, "https://omarchy.org/meetups");
 });

@@ -9,7 +9,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CITIES, CITY_BY_ID } from "../src/core/cities.js";
 import { parseColorsToml } from "../src/core/theme.js";
-import { createMeetupsSource } from "./meetups.js";
+import { createMeetupsSource, MEETUPS_PAGE } from "./meetups.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const STATIC_ROOT = join(ROOT, "src");
@@ -121,7 +121,7 @@ export function createOmaglobeServer({
     if (req.method === "GET" && path === "/api/meetups") {
       try {
         const { at, meetups: list } = await meetups();
-        return json(res, 200, { updated: new Date(at).toISOString(), source: "https://luma.com/omarchy", meetups: list });
+        return json(res, 200, { updated: new Date(at).toISOString(), source: MEETUPS_PAGE, meetups: list });
       } catch {
         return json(res, 502, { error: "meetups unavailable", meetups: [] });
       }

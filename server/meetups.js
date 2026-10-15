@@ -1,18 +1,20 @@
-// Omarchy meetups, from the public Luma calendar that omarchy.org/meetups
-// lists. Normalized to the few fields the globe needs and cached in memory.
+// Omarchy meetups, from the listing omarchy.org/meetups is built from
+// (omacom/omarchy-site, refreshed daily from the Luma calendar). Normalized
+// to the few fields the globe needs and cached in memory.
 
 import { CITIES } from "../src/core/cities.js";
 
-export const LUMA_CALENDAR_ID = "cal-SDGGMsEps9ExsrT"; // luma.com/omarchy
-const LUMA_API = "https://api.lu.ma/calendar/get-items";
+export const MEETUPS_URL = "https://raw.githubusercontent.com/omacom/omarchy-site/master/src/data/meetups.json";
+export const MEETUPS_PAGE = "https://omarchy.org/meetups";
+const SITE = "https://omarchy.org";
 const TTL_MS = 10 * 60 * 1000;
 
 const round = (n) => Math.round(n * 1000) / 1000;
-const ONLINE = new Set(["meet", "zoom", "youtube", "online", "virtual"]);
+const isNum = (n) => typeof n === "number" && Number.isFinite(n);
 
-// Online events and hidden addresses carry no coordinates. Like omarchy.org,
-// fall back to the event's timezone city so they still land in the region.
-const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+// The listing places hidden addresses by title; the rare event it can't place
+// falls back to its timezone city so it still lands in the region.
+const fold = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const CITY_BY_NAME = new Map(CITIES.map((c) => [fold(c.name), c]));
 const TZ_EXTRA = {
   "Africa/Abidjan": ["Abidjan", 5.36, -4.01],
@@ -34,68 +36,79 @@ function locateTimezone(tz) {
   return city ? { city: city.name, lat: city.lat, lon: city.lon } : null;
 }
 
-export function normalizeLumaEntries(entries) {
-  const out = [];
-  for (const entry of entries || []) {
-    const ev = entry?.event;
-    if (!ev?.api_id || !ev.name || !ev.start_at) continue;
-    const geo = ev.geo_address_info || {};
-    let lat = Number(ev.coordinate?.latitude);
-    let lon = Number(ev.coordinate?.longitude);
-    let near = null; // timezone city used for placement when there's no address
+const https = (u, base) => {
+  try {
+    const url = new URL(u, base);
+    return url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
+};
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+const text = (s) => (typeof s === "string" && s ? s : null);
+
+export function normalizeMeetups(data) {
+  const out = [];
+  for (const ev of data?.events || []) {
+    if (!text(ev?.id) || !text(ev.title) || !Number.isFinite(Date.parse(ev.start))) continue;
+    let lat = ev.geo?.lat;
+    let lon = ev.geo?.lon;
+    let near = null; // timezone city used for placement when the listing has no place
+
+    if (!isNum(lat) || !isNum(lon)) {
       const guess = locateTimezone(ev.timezone);
-      lat = guess ? guess.lat : NaN;
-      lon = guess ? guess.lon : NaN;
+      lat = guess?.lat;
+      lon = guess?.lon;
       near = guess?.city || null;
     }
     out.push({
-      id: ev.api_id,
-      name: ev.name,
-      url: `https://luma.com/${ev.url}`,
-      start: ev.start_at,
-      end: ev.end_at || null,
-      timezone: ev.timezone || null,
-      city: geo.city || null,
-      region: geo.region || null,
-      country: geo.country || null,
-      lat: Number.isFinite(lat) ? round(lat) : null,
-      lon: Number.isFinite(lon) ? round(lon) : null,
+      id: ev.id,
+      name: ev.title,
+      url: https(ev.url),
+      start: ev.start,
+      end: Number.isFinite(Date.parse(ev.end)) ? ev.end : null,
+      timezone: text(ev.timezone),
+      city: text(ev.city),
+      country: text(ev.country),
+      lat: isNum(lat) ? round(lat) : null,
+      lon: isNum(lon) ? round(lon) : null,
+      approximate: ev.geo?.approximate === true,
       near,
-      online: ONLINE.has(ev.location_type),
-      guests: Number.isFinite(entry.guest_count) ? entry.guest_count : null,
-      cover: typeof ev.cover_url === "string" ? ev.cover_url : null,
-      hosts: (entry.hosts || []).map((h) => h?.name).filter(Boolean).slice(0, 4),
+      online: ev.online === true,
+      hosts: (Array.isArray(ev.hosts) ? ev.hosts : []).filter((h) => typeof h === "string" && h).slice(0, 4),
+      cover: text(ev.cover) && https(ev.cover, SITE),
     });
   }
-  return out;
+  return out.sort((a, b) => a.start.localeCompare(b.start));
 }
 
-export function createMeetupsSource({ fetch: fetchImpl = globalThis.fetch, calendarId = LUMA_CALENDAR_ID, ttl = TTL_MS } = {}) {
+export function createMeetupsSource({ fetch: fetchImpl = globalThis.fetch, url = MEETUPS_URL, ttl = TTL_MS } = {}) {
   let cache = null; // { at, meetups }
   let inflight = null;
-
-  async function load(period) {
-    const url = `${LUMA_API}?calendar_api_id=${calendarId}&period=${period}&pagination_limit=100`;
-    const res = await fetchImpl(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) throw new Error(`luma ${period}: HTTP ${res.status}`);
-    return normalizeLumaEntries((await res.json()).entries);
-  }
+  let retryAt = 0;
 
   async function refresh() {
-    const [future, past] = await Promise.all([load("future"), load("past")]);
-    const seen = new Set();
-    const meetups = [...future, ...past].filter((m) => !seen.has(m.id) && seen.add(m.id));
-    meetups.sort((a, b) => a.start.localeCompare(b.start));
-    cache = { at: Date.now(), meetups };
+    const res = await fetchImpl(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`meetups: HTTP ${res.status}`);
+    cache = { at: Date.now(), meetups: normalizeMeetups(await res.json()) };
     return cache;
   }
 
-  // Serves the cache while fresh; on a failed refresh keeps serving stale data.
+  // Serves the cache while fresh. A failed refresh keeps serving stale data
+  // and waits a full ttl before trying the upstream again.
   return async function get() {
-    if (cache && Date.now() - cache.at < ttl) return cache;
-    inflight ??= refresh().finally(() => (inflight = null));
+    const now = Date.now();
+    if (cache && now - cache.at < ttl) return cache;
+    if (now < retryAt) {
+      if (cache) return cache;
+      throw new Error("meetups unavailable");
+    }
+    inflight ??= refresh()
+      .catch((err) => {
+        retryAt = Date.now() + ttl;
+        throw err;
+      })
+      .finally(() => (inflight = null));
     try {
       return await inflight;
     } catch (err) {

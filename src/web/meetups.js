@@ -1,5 +1,5 @@
 // Meetup card + list for the web host. Data comes from /api/meetups (the
-// Omarchy Luma calendar). Everything from Luma is rendered as text only.
+// omarchy.org listing). Everything from it is rendered as text only.
 
 const $ = (id) => document.getElementById(id);
 
@@ -41,17 +41,34 @@ function relative(m, now = Date.now()) {
   return rtf.format(days, "day");
 }
 
+const regions = (() => {
+  try {
+    return new Intl.DisplayNames(undefined, { type: "region" });
+  } catch {
+    return null;
+  }
+})();
+
+const countryName = (code) => {
+  try {
+    return (code && regions?.of(code)) || code;
+  } catch {
+    return code;
+  }
+};
+
 function place(m) {
-  const where = [m.city, m.country].filter(Boolean).join(", ");
-  if (where) return m.online ? `${where} · online` : where;
-  const near = m.near ? ` · shown near ${m.near} (event timezone)` : "";
-  return (m.online ? "online" : "address shared with guests") + near;
+  if (m.near) return `${m.online ? "online" : "address shared with guests"} · shown near ${m.near} (event timezone)`;
+  const where = [m.city, countryName(m.country)].filter(Boolean).join(", ");
+  if (m.approximate) return `${where ? `around ${where}` : "approximate place"} · exact place shared with guests`;
+  return m.online ? [where, "online"].filter(Boolean).join(" · ") : where;
 }
 
 const safeUrl = (u, host) => {
   try {
     const url = new URL(u);
-    return url.protocol === "https:" && (!host || url.hostname.endsWith(host)) ? url.href : null;
+    const hostOk = !host || url.hostname === host || url.hostname.endsWith(`.${host}`);
+    return url.protocol === "https:" && hostOk ? url : null;
   } catch {
     return null;
   }
@@ -78,20 +95,25 @@ export function createMeetupsUi({ onFocus, onFly }) {
 
   function renderEvent(m) {
     const upcoming = isUpcoming(m);
-    const cover = safeUrl(m.cover, "lumacdn.com");
-    const link = safeUrl(m.url, "luma.com");
-    // Luma reports 0 when the guest list is hidden, so only show real counts.
-    const guests = m.guests > 0 ? `${m.guests} ${upcoming ? "going" : "went"}` : null;
+    const cover = safeUrl(m.cover, "omarchy.org");
+    const link = safeUrl(m.url);
+    const linkHost = link?.hostname.replace(/^www\./, "");
     return el(
       "article",
       { className: `event${upcoming ? "" : " past"}` },
-      cover && el("img", { src: cover, alt: "", loading: "lazy", referrerPolicy: "no-referrer" }),
+      cover && el("img", { src: cover.href, alt: "", loading: "lazy", referrerPolicy: "no-referrer" }),
       el("p", { className: "when" }, el("span", { className: "tag", textContent: upcoming ? relative(m) : "happened" }), " ", formatWhen(m)),
       el("h3", { textContent: m.name }),
       el("p", { className: "where", textContent: place(m) }),
-      (guests || m.hosts?.length) &&
-        el("p", { className: "meta", textContent: [guests, m.hosts?.length ? `hosted by ${m.hosts.join(", ")}` : null].filter(Boolean).join(" · ") }),
-      link && el("a", { className: "btn primary", href: link, target: "_blank", rel: "noopener noreferrer", textContent: "[ open on Luma ↗ ]" }),
+      m.hosts?.length > 0 && el("p", { className: "meta", textContent: `hosted by ${m.hosts.join(", ")}` }),
+      link &&
+        el("a", {
+          className: "btn primary",
+          href: link.href,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          textContent: `[ open on ${linkHost === "luma.com" ? "Luma" : linkHost} ↗ ]`,
+        }),
     );
   }
 
