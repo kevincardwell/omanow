@@ -242,3 +242,11 @@ canvas.pointing { cursor: pointer; }
   cursor: pointer;
 }
 .theme select:focus-visible { outline: 1px solid var(--accent); }
+
+.panel.list .prose { list-style: square; padding-left: 18px; }
+.panel.list .prose li { margin: 4px 0; }
+.command { display: flex; gap: 12px; align-items: center; background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; margin: 12px 0; }
+.command code { flex: 1; overflow-x: auto; white-space: nowrap; color: var(--fg-bright); }
+@media (max-width: 560px) {
+  .theme { position: static; width: 100%; }
+}

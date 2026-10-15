@@ -13,8 +13,6 @@
       <canvas id="globe" aria-label="Pixel globe of people sharing their city and Omarchy meetups. Drag or use arrow keys to rotate, scroll or +/- to zoom." tabindex="0"></canvas>
     </main>
 
-    <label class="theme">theme <select id="theme" aria-label="Theme"></select></label>
-
     <div class="zoom" role="group" aria-label="Zoom">
       <button class="btn" id="zoom-in" type="button" aria-label="Zoom in">[+]</button>
       <button class="btn" id="zoom-out" type="button" aria-label="Zoom out">[-]</button>
@@ -28,6 +26,7 @@
     </aside>
 
     <footer class="hud">
+      <label class="theme">theme <select id="theme" aria-label="Theme"></select></label>
       <div class="stats" aria-live="polite">
         <span class="dot"></span><span id="total">0</span> on the map · <span id="cities">0</span> cities · <span id="online">0</span> online
         <span class="hint">drag to spin · scroll to zoom</span>
@@ -35,6 +34,8 @@
 
       <div class="share" id="share">
         <button class="btn meetups-btn" id="meetups-open" type="button" hidden>[ meetups ]</button>
+        <button class="btn" id="plugin-open" type="button">[ omarchy plugin ]</button>
+        <button class="link" id="about-open" type="button">about</button>
         <button class="btn" id="share-open" type="button">[ share my city ]</button>
 
         <div class="sharing" id="sharing" hidden>
@@ -72,6 +73,42 @@
       </header>
       <p class="fine">From <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>, the Omarchy calendar on Luma. Pick one to fly there.</p>
       <div id="meetups-body"></div>
+    </dialog>
+
+    <dialog class="panel list" id="plugin">
+      <header>
+        <h2>&gt; omaglobe in your Omarchy bar</h2>
+        <button class="link" data-close type="button">close ×</button>
+      </header>
+      <p class="fine">A globe next to the weather that puts your machine on this map while it's online. Off until you turn it on; only the city you pick is sent.</p>
+      <div class="command">
+        <code id="plugin-command">omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable</code>
+        <button class="btn" id="plugin-copy" type="button">[ copy ]</button>
+      </div>
+      <p class="fine">Pick the center section when asked. Then click the globe, choose your city and press <b>Show me on the map</b>. Right-click it to open this page in your current Omarchy theme.</p>
+    </dialog>
+
+    <dialog class="panel list" id="about">
+      <header>
+        <h2>&gt; about omaglobe</h2>
+        <button class="link" data-close type="button">close ×</button>
+      </header>
+      <p>An opt-in map of Omarchy users. A community project, not affiliated with Omarchy, Omacom or 37signals.</p>
+      <h3>privacy</h3>
+      <ul class="prose">
+        <li>Nothing is collected unless you choose to share. Sharing is off by default.</li>
+        <li>Sharing from this page stores a random ID your browser makes (only its hash) and the city you picked. It's kept until you press stop, or 180 days after your last visit.</li>
+        <li>The Omarchy plugin sends a random install ID (stored hashed) and your city once an hour while it's on. It's dropped about an hour after the last one, or when you go offline.</li>
+        <li>No names, accounts, IP addresses, coordinates, cookies or analytics. A city shows only once 3 people are there, and the map updates once a minute so no one can tell when you joined.</li>
+        <li>Cloudflare hosts the site and sees connections, as any host does.</li>
+      </ul>
+      <h3>terms</h3>
+      <ul class="prose">
+        <li>Open source under the MIT license. Provided as is, without warranty of any kind. To the extent the law allows, the author is not liable for anything arising from its use.</li>
+        <li>The service may change or go away at any time.</li>
+        <li>Meetups come from <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>; cover images belong to their organizers.</li>
+      </ul>
+      <p class="fine">Source, issues and questions: <a href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github.com/mark-omarov/omaglobe</a></p>
     </dialog>
 
     <script type="module" src="web/app.js"></script>

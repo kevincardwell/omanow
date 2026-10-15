@@ -329,3 +329,20 @@ $("share-form").addEventListener("submit", async (e) => {
 const saved = storage(CITY_KEY);
 showSharing(saved);
 if (CITY_BY_ID.has(saved)) post("api/share", { id: clientId(), city: saved }).catch(() => {});
+
+// ----------------------------------------------------------- about, plugin
+
+for (const name of ["about", "plugin"]) {
+  const dialog = $(name);
+  $(`${name}-open`).addEventListener("click", () => dialog.showModal());
+  dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+}
+
+$("plugin-copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("plugin-command").textContent);
+    $("plugin-copy").textContent = "[ copied ]";
+  } catch {
+    getSelection().selectAllChildren($("plugin-command"));
+  }
+});
