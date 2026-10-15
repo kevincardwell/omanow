@@ -31,18 +31,34 @@ test("server setting falls back to the public server", () => {
   assert.equal(Model.serverUrl("file:///etc/passwd"), Model.DEFAULT_SERVER);
 });
 
-test("theme link carries the colors in the fragment only", () => {
-  const link = Model.themeLink("http://localhost:8787", 'accent = "#81a1c1"\nbackground = "#2e3440"\n');
-  const [base, fragment] = link.split("#theme=");
+test("page link carries theme, city and sync in the fragment only", () => {
+  const theme = Model.themeHex('accent = "#81a1c1"\nbackground = "#2e3440"\n');
+  const link = Model.pageLink("http://localhost:8787", { theme, city: "tokyo-jp", sync: "abc" });
+  const [base, fragment] = link.split("#");
   assert.equal(base, "http://localhost:8787/");
-  assert.equal(decodeTheme(fragment).accent, "#81a1c1");
-  assert.equal(Model.themeLink("http://x.test", ""), "http://x.test/");
+  const params = new URLSearchParams(fragment);
+  assert.equal(decodeTheme(params.get("theme")).accent, "#81a1c1");
+  assert.equal(params.get("me"), "tokyo-jp");
+  assert.equal(params.get("sync"), "abc");
+  assert.equal(Model.pageLink("http://x.test", {}), "http://x.test/");
+  assert.equal(Model.themeHex(""), "");
 });
 
-test("summary and visibility", () => {
+test("locates by timezone from tzdata, offline", () => {
+  const tab = "# comment\nDK\t+5540+01235\tEurope/Copenhagen\nJP\t+353916+1394441\tAsia/Tokyo\nBR\t-2332-04637\tAmerica/Sao_Paulo\n";
+  assert.equal(Model.zoneFromPath("/usr/share/zoneinfo/Asia/Tokyo\n"), "Asia/Tokyo");
+  assert.equal(Model.cityFromZone(tab, "Asia/Tokyo"), "tokyo-jp");
+  assert.equal(Model.cityFromZone(tab, "Europe/Copenhagen"), "copenhagen-dk");
+  assert.equal(Model.cityFromZone(tab, "America/Sao_Paulo"), "sao-paulo-br");
+  assert.equal(Model.cityFromZone(tab, "Mars/Olympus"), "");
+});
+
+test("retries back off and cap at 30 minutes", () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((n) => Model.retryDelay(n) / 60000), [1, 2, 4, 8, 16, 30, 30]);
+});
+
+test("summary and options", () => {
   const heat = { total: 1234, online: 5, cities: [["berlin-de", 4]], min: 3 };
   assert.match(Model.summary(heat), /on the map · 5 online · 1 cities/);
-  assert.equal(Model.cityShown(heat, "berlin-de"), true);
-  assert.equal(Model.cityShown(heat, "oslo-no"), false);
   assert.ok(Model.cityOptions().every((o) => o.value && o.label));
 });

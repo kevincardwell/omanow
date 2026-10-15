@@ -1,44 +1,62 @@
-# omaglobe for Omarchy
+# omaglobe for omarchy
 
-A globe icon in your Omarchy bar that puts this machine on the
-[omaglobe](https://omaglobe.mark-omarov.workers.dev) heatmap, at city level,
-while it's online. It does nothing until you turn it on.
+A globe in your omarchy bar that puts this machine on the
+[omaglobe](https://omaglobe.mark-omarov.workers.dev) map, at city level, while
+it's online. Off until you switch it on.
 
 ```sh
 omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
+omarchy bar move io.github.mark-omarov.omaglobe --before omarchy.indicators
 ```
 
-Pick the center section when asked. To sit it right after the weather:
-
-```sh
-omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.weather
-```
+Like the indicators, it stays out of sight while off and shows when you hover
+the middle of the bar. While sharing it stays visible.
 
 ## Use
 
-- **Click** the globe: pick your city and press **Show me on the map**.
-  Press **Go offline** to stop.
-- **Right-click**: open the globe in your browser, in your current Omarchy
-  theme.
+Click the globe and flip the switch. Pick a city, or press locate to use the
+nearest one to this machine: the weather widget's saved place if it has one,
+otherwise your timezone. Either way it's worked out locally and only the city
+is sent. Right-click the globe to open the map in your current omarchy theme;
+that page follows your theme switches while it's open.
 
-If the weather widget has a saved location, the nearest city is preselected.
+In the popup: `enter` or `s` share, `l` locate, `o` open the map, `?` help,
+`esc` close.
+
+From the keyboard or scripts:
+
+```sh
+omarchy-shell omaglobe toggleSharing   # on/off
+omarchy-shell omaglobe toggle          # open/close the popup
+omarchy-shell omaglobe status
+```
+
+To get it in the omarchy menu next to Stay Awake (Trigger > Toggle), add to
+`~/.config/omarchy/extensions/omarchy-menu.jsonc`:
+
+```jsonc
+"trigger.toggle.omaglobe": {"icon":"󰇧","label":"omaglobe","action":"omarchy-shell -q omaglobe toggleSharing","checked":"jq -e .online ~/.local/state/omaglobe/state.json >/dev/null 2>&1"},
+```
 
 ## What it sends
 
-While on, once an hour: a random install id and the city you picked. That's
-all. No coordinates, no hostname, no username. The server keeps only a hash
-of the id and drops it about an hour after the last heartbeat, or right away
-when you go offline. A city shows on the map only once 3 people are there.
+While on, once an hour: a random install id and the city you picked. No
+coordinates, hostname or username. The server keeps only a hash of the id and
+drops it about an hour after the last heartbeat, or right away when you
+switch off. A city shows on the map only once 3 people are there. If the
+connection drops it keeps your setting and retries after 1, 2, 4 and up to
+30 minutes.
 
-The theme link carries your colors in the URL fragment, which browsers never
-send to a server.
+A page you open from the globe gets your theme and city in the URL fragment,
+which browsers never send. Later theme switches reach that page through the
+server, which passes them on and stores nothing.
 
-Local state lives in `~/.local/state/omaglobe/state.json`.
+State lives in `~/.local/state/omaglobe/state.json`. It loads with the shell
+and picks up where it left off.
 
 ## Settings
 
-`server`: leave empty for the public omaglobe. Point it at a local dev server
-with:
+`server`: leave empty for the public omaglobe. For a local dev server:
 
 ```sh
 omarchy bar set io.github.mark-omarov.omaglobe server http://localhost:8787
