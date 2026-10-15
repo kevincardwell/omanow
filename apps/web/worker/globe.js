@@ -17,6 +17,7 @@ const DAY_MS = 86_400_000;
 const WRITES_PER_MINUTE = 6;
 const MAX_VIEWERS = 5000;
 const CLIENT_ID = /^[A-Za-z0-9-]{16,64}$/;
+const THEME_HEX = /^(?:[0-9a-f]{6}){1,32}$/;
 
 export function json(status, data, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -73,6 +74,7 @@ export class Globe {
     const { pathname } = new URL(request.url);
     if (request.method === "GET" && pathname === "/api/heat") return json(200, await this.published());
     if (request.method === "GET" && pathname === "/api/live") return this.live(request);
+    if (request.method === "POST" && pathname === "/api/sync") return this.relay(request);
     if (request.method === "POST" && WRITE_PATHS.has(pathname)) return this.write(request, pathname);
     return json(404, { error: "not found" });
   }
@@ -81,12 +83,42 @@ export class Globe {
     if (request.headers.get("upgrade") !== "websocket") return json(426, { error: "expected websocket" });
     if (this.ctx.getWebSockets().length >= MAX_VIEWERS) return json(503, { error: "too many viewers" });
     const [client, server] = Object.values(new WebSocketPair());
-    this.ctx.acceptWebSocket(server);
+    const sync = new URL(request.url).searchParams.get("sync");
+    this.ctx.acceptWebSocket(server, sync && CLIENT_ID.test(sync) ? [`sync:${sync}`] : []);
     server.send(JSON.stringify({ type: "heat", ...(await this.published()), joins: [] }));
     return new Response(null, { status: 101, webSocket: client });
   }
 
   webSocketMessage() {}
+
+  // The plugin's theme switches and on/off changes, passed to the page it
+  // opened. Relayed to that page's socket and never stored.
+  async relay(request) {
+    if (this.limited(request.headers.get("cf-connecting-ip") || "unknown")) return json(429, { error: "slow down" }, { "retry-after": "60" });
+    const text = await request.text();
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return json(400, { error: "invalid body" });
+    }
+    const theme = body?.theme;
+    const me = body?.me;
+    const validTheme = theme === undefined || (typeof theme === "string" && THEME_HEX.test(theme));
+    const validMe = me === undefined || me === "" || CITY_BY_ID.has(me);
+    if (typeof body?.sync !== "string" || !CLIENT_ID.test(body.sync) || !validTheme || !validMe || (theme === undefined && me === undefined)) {
+      return json(400, { error: "invalid sync" });
+    }
+    const message = JSON.stringify({ type: "sync", theme, me });
+    for (const ws of this.ctx.getWebSockets(`sync:${body.sync}`)) {
+      try {
+        ws.send(message);
+      } catch {
+        // Gone; the page will reconnect with the same sync id.
+      }
+    }
+    return json(200, { ok: true });
+  }
 
   limited(ip) {
     const window = Math.floor(Date.now() / 60_000);

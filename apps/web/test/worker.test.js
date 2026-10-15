@@ -156,6 +156,27 @@ test("plugins count as online until their heartbeats stop", async () => {
   assert.deepEqual((await heat()).cities, [], "1 web + 1 online is below the threshold");
 });
 
+test("plugin changes reach only the page it opened", async () => {
+  const page = { sent: [], send: (m) => page.sent.push(JSON.parse(m)) };
+  const other = { sent: [], send: (m) => other.sent.push(JSON.parse(m)) };
+  ctx.getWebSockets = (tag) => (tag === "sync:abcdef0123456789abcd" ? [page] : [page, other]);
+  const relay = (body) => call("/api/sync", { body });
+  assert.equal((await relay({ sync: "abcdef0123456789abcd", theme: "81a1c1".repeat(20) })).status, 200);
+  assert.equal((await relay({ sync: "abcdef0123456789abcd", me: "tokyo-jp" })).status, 200);
+  assert.equal((await relay({ sync: "abcdef0123456789abcd", me: "" })).status, 200);
+  assert.deepEqual(page.sent, [
+    { type: "sync", theme: "81a1c1".repeat(20) },
+    { type: "sync", me: "tokyo-jp" },
+    { type: "sync", me: "" },
+  ]);
+  assert.deepEqual(other.sent, []);
+  assert.equal((await relay({ sync: "abcdef0123456789abcd", theme: "<script>" })).status, 400);
+  assert.equal((await relay({ sync: "short", theme: "81a1c1" })).status, 400);
+  assert.equal((await relay({ sync: "abcdef0123456789abcd", me: "atlantis-xx" })).status, 400);
+  assert.equal((await relay({ sync: "abcdef0123456789abcd" })).status, 400);
+  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM optins").get().n, 0, "nothing is stored");
+});
+
 test("unknown routes and methods 404", async () => {
   assert.equal((await call("/api/nope")).status, 404);
   assert.equal((await call("/api/heat", { body: {} })).status, 404);
