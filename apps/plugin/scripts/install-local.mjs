@@ -1,5 +1,3 @@
-// Copies dist/ into the Omarchy shell's plugin directory for local testing.
-// The shell hot-reloads it; rerun after each change.
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";

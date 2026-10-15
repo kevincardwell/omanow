@@ -1,5 +1,4 @@
-// Meetup card + list for the web host. Data comes from /api/meetups (the
-// omarchy.org listing). Everything from it is rendered as text only.
+// Everything from the meetup listing is rendered as text, never as HTML.
 
 const $ = (id) => document.getElementById(id);
 
@@ -11,7 +10,7 @@ const el = (tag, props = {}, ...children) => {
 
 const isUpcoming = (m, now = Date.now()) => Date.parse(m.end || m.start) >= now;
 
-// Shown in the event's own timezone, which is what the organizers announce.
+// In the event's own timezone, which is what organizers announce.
 function formatWhen(m) {
   const opts = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" };
   const start = new Date(m.start);

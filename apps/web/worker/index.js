@@ -1,5 +1,4 @@
-// Cloudflare Worker: static files come from the assets binding before this
-// runs; everything under /api lands here.
+// Static files are served by the assets binding before this runs.
 
 import { json } from "./globe.js";
 import { createMeetupsSource, MEETUPS_PAGE } from "./meetups.js";
@@ -9,8 +8,7 @@ export { Globe } from "./globe.js";
 const meetups = createMeetupsSource();
 const GLOBE_PATHS = new Set(["/api/heat", "/api/live", "/api/online", "/api/offline", "/api/sync"]);
 
-// Blocks cross-site form posts and other sites' scripts from writing opt-ins.
-function crossSite(request, url) {
+function rejectCrossSite(request, url) {
   const origin = request.headers.get("origin");
   if (origin && origin !== url.origin) return json(403, { error: "cross-origin request" });
   if (!request.headers.get("content-type")?.startsWith("application/json")) return json(415, { error: "expected application/json" });
@@ -31,7 +29,7 @@ export default {
     }
 
     if (GLOBE_PATHS.has(url.pathname)) {
-      const rejected = request.method === "POST" && crossSite(request, url);
+      const rejected = request.method === "POST" && rejectCrossSite(request, url);
       if (rejected) return rejected;
       return env.GLOBE.get(env.GLOBE.idFromName("globe")).fetch(request);
     }

@@ -1,5 +1,3 @@
-// Pulls the stock Omarchy themes' colors.toml from omacom/omarchy (MIT) and
-// writes them as src/themes.js, keeping only the keys the globe uses.
 import { writeFileSync } from "node:fs";
 import { parseColorsToml, THEME_KEYS } from "../src/theme.js";
 

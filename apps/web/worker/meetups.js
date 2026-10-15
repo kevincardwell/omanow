@@ -1,7 +1,3 @@
-// Omarchy meetups, from the listing omarchy.org/meetups is built from
-// (omacom/omarchy-site, refreshed daily from the Luma calendar). Normalized
-// to the few fields the globe needs and cached in memory.
-
 import { CITIES } from "@omaglobe/core/cities.js";
 
 export const MEETUPS_URL = "https://raw.githubusercontent.com/omacom/omarchy-site/master/src/data/meetups.json";
@@ -12,8 +8,8 @@ const TTL_MS = 10 * 60 * 1000;
 const round = (n) => Math.round(n * 1000) / 1000;
 const isNum = (n) => typeof n === "number" && Number.isFinite(n);
 
-// The listing places hidden addresses by title; the rare event it can't place
-// falls back to its timezone city so it still lands in the region.
+// The listing places hidden addresses by title; an event it can't place
+// falls back to its timezone's city.
 const fold = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const CITY_BY_NAME = new Map(CITIES.map((c) => [fold(c.name), c]));
 const TZ_EXTRA = {
@@ -53,7 +49,7 @@ export function normalizeMeetups(data) {
     if (!text(ev?.id) || !text(ev.title) || !Number.isFinite(Date.parse(ev.start))) continue;
     let lat = ev.geo?.lat;
     let lon = ev.geo?.lon;
-    let near = null; // timezone city used for placement when the listing has no place
+    let near = null;
 
     if (!isNum(lat) || !isNum(lon)) {
       const guess = locateTimezone(ev.timezone);
@@ -83,7 +79,7 @@ export function normalizeMeetups(data) {
 }
 
 export function createMeetupsSource({ fetch: fetchImpl = globalThis.fetch, url = MEETUPS_URL, ttl = TTL_MS } = {}) {
-  let cache = null; // { at, meetups }
+  let cache = null;
   let inflight = null;
   let retryAt = 0;
 
@@ -94,8 +90,8 @@ export function createMeetupsSource({ fetch: fetchImpl = globalThis.fetch, url =
     return cache;
   }
 
-  // Serves the cache while fresh. A failed refresh keeps serving stale data
-  // and waits a full ttl before trying the upstream again.
+  // A failed refresh keeps serving stale data and waits a full ttl before
+  // trying the upstream again.
   return async function get() {
     const now = Date.now();
     if (cache && now - cache.at < ttl) return cache;

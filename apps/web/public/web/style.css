@@ -52,7 +52,6 @@ canvas {
 }
 canvas.dragging { cursor: grabbing; }
 
-/* CRT-ish scanlines, web only. */
 .stage::after {
   content: "";
   position: absolute;
@@ -104,7 +103,6 @@ canvas.dragging { cursor: grabbing; }
 .btn.primary { color: var(--accent); }
 .link { color: var(--fg-dim); text-decoration: underline dotted; margin-left: 10px; padding: 0; }
 .link:hover, .link:focus-visible { color: var(--fg-bright); outline: none; }
-
 
 .panel {
   width: min(440px, calc(100vw - 32px));

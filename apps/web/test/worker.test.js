@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, mock, test } from "node:test";
-import { Globe, MIN_PEOPLE, ONLINE_MS } from "../worker/globe.js";
+import { Globe, MIN_PER_CITY, HEARTBEAT_TTL_MS } from "../worker/globe.js";
 import worker from "../worker/index.js";
 
 globalThis.WebSocketRequestResponsePair ??= class {};
@@ -68,7 +68,7 @@ const call = (path, { body, ip = `10.0.0.${++ipCounter}`, headers = {} } = {}) =
 const heat = () => call("/api/heat").then((r) => r.json());
 const online = (id, city, ip) => call("/api/online", { body: { id, city }, ip });
 const machine = (n) => `machine-${String(n).padStart(12, "0")}`;
-const empty = { total: 0, cities: [], min: MIN_PEOPLE };
+const empty = { total: 0, cities: [], min: MIN_PER_CITY };
 
 test("heat is published on the timer, not per request", async () => {
   for (const n of [1, 2, 3]) await online(machine(n), "berlin-de");
@@ -78,11 +78,11 @@ test("heat is published on the timer, not per request", async () => {
   const viewer = { sent: [], send: (m) => viewer.sent.push(JSON.parse(m)) };
   ctx.sockets.push(viewer);
   await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), { total: 3, cities: [["berlin-de", 3]], min: MIN_PEOPLE });
-  assert.deepEqual(viewer.sent, [{ type: "heat", total: 3, cities: [["berlin-de", 3]], min: MIN_PEOPLE, joins: ["berlin-de"] }]);
+  assert.deepEqual(await heat(), { total: 3, cities: [["berlin-de", 3]], min: MIN_PER_CITY });
+  assert.deepEqual(viewer.sent, [{ type: "heat", total: 3, cities: [["berlin-de", 3]], min: MIN_PER_CITY, joins: ["berlin-de"] }]);
 });
 
-test(`cities with fewer than ${MIN_PEOPLE} machines stay off the public map`, async () => {
+test(`cities with fewer than ${MIN_PER_CITY} machines stay off the public map`, async () => {
   await online(machine(1), "tokyo-jp");
   await online(machine(2), "tokyo-jp");
   await ctx.fireAlarm(globe);
@@ -91,11 +91,11 @@ test(`cities with fewer than ${MIN_PEOPLE} machines stay off the public map`, as
   await ctx.fireAlarm(globe);
   assert.deepEqual((await heat()).cities, [["tokyo-jp", 3]]);
 
-  const local = new Globe(fakeCtx(), { MIN_PEOPLE: "1" });
+  const local = new Globe(fakeCtx(), { MIN_PER_CITY: "1" });
   env.GLOBE.get = () => local;
   await online(machine(9), "oslo-no");
   await local.alarm();
-  assert.deepEqual((await heat()).cities, [["oslo-no", 1]], "MIN_PEOPLE can be lowered for local testing");
+  assert.deepEqual((await heat()).cities, [["oslo-no", 1]], "MIN_PER_CITY can be lowered for local testing");
 });
 
 test("moving and going offline keep counts right; raw ids are never stored", async () => {
@@ -117,7 +117,7 @@ test("machines drop off when heartbeats stop", async () => {
   await ctx.fireAlarm(globe);
   assert.equal(await ctx.storage.getAlarm(), NOW + 15 * 60_000, "presence is swept every 15 minutes");
 
-  mock.timers.tick(ONLINE_MS - 60_000);
+  mock.timers.tick(HEARTBEAT_TTL_MS - 60_000);
   const beat = await online(machine(1), "oslo-no").then((r) => r.json());
   assert.equal(beat.heat.total, 4, "a heartbeat returns the published map");
   mock.timers.tick(2 * 60_000);

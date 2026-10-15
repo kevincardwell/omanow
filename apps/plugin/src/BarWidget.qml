@@ -6,9 +6,6 @@ import qs.Commons
 import qs.Ui
 import "model.mjs" as Model
 
-// Off until switched on. While on, tells omaglobe "an omarchy machine is
-// online in <city>" once an hour; the server forgets it about an hour after
-// the last heartbeat. Only the city id and a random install id are sent.
 Panel {
   id: omaglobe
   moduleName: "io.github.mark-omarov.omaglobe"
@@ -21,7 +18,7 @@ Panel {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  // Like the indicators: out of the way while off, shown on center hover.
+  // Hidden while off, like the indicators, until the bar's center is hovered.
   readonly property bool revealed: online || opened
     || (bar && bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true)
 
@@ -33,12 +30,9 @@ Panel {
   property string error: ""
   property int failures: 0
   property bool helpOpen: false
-  // Set the first time this machine opens the map; browsers that opened it
-  // follow this widget's theme and city through the server's relay.
   property string syncId: ""
 
-  // The dropdown writes its own value on a pick, which breaks a binding, so
-  // keep it in step by hand (locate changes the city too).
+  // The dropdown assigns its own value on a pick, which breaks a binding.
   onCityChanged: if (picker) picker.value = city
 
   visible: revealed
@@ -66,8 +60,6 @@ Panel {
     xhr.send(JSON.stringify(body))
   }
 
-  // Connection drops are expected: keep the state, back off 1, 2, 4... up
-  // to 30 minutes, and say "reconnecting" rather than fail.
   function heartbeat() {
     if (!online || installId === "" || city === "") return
     post("/api/online", { id: installId, city: city }, function (data) {
@@ -77,7 +69,6 @@ Panel {
       omaglobe.syncPage()
       beat.restart()
     }, function (status, message) {
-      // Too many changes in a minute: try again in one, quietly.
       if (status === 429) {
         retry.interval = 60000
         retry.restart()
@@ -90,7 +81,6 @@ Panel {
     })
   }
 
-  // Keeps a page opened from here in step with this widget.
   function syncPage() {
     if (syncId !== "") post("/api/sync", { sync: syncId, me: online ? city : "" }, null, null)
   }
@@ -132,8 +122,6 @@ Panel {
     if (online) heartbeat()
   }
 
-  // Weather widget's saved place first, else the system timezone's point in
-  // tzdata. Both stay on this machine; only the snapped city is ever sent.
   function locate(thenShare) {
     var found = Model.cityFromWeather(weatherFile.text())
     if (found === "") found = Model.cityFromZone(zoneTab.text(), Model.zoneFromPath(localtime.target))
@@ -155,8 +143,6 @@ Panel {
     Util.execArgv(["xdg-open", link])
   }
 
-  // Keyboard and menu access, e.g. the omarchy menu's Trigger > Toggle row:
-  // omarchy-shell omaglobe toggleSharing
   IpcHandler {
     target: "omaglobe"
     function open(): void { omaglobe.open() }
@@ -169,8 +155,7 @@ Panel {
     function status(): string { return omaglobe.online ? "sharing " + omaglobe.city : "off" }
   }
 
-  // ~/.local/state/omaglobe/state.json: { id, city, online }. Kept out of
-  // shell.json so a published dotfiles repo doesn't carry it.
+  // Kept out of shell.json so a published dotfiles repo doesn't carry it.
   FileView {
     id: stateFile
     path: omaglobe.stateDir + "/state.json"
@@ -227,8 +212,6 @@ Panel {
     path: omaglobe.home + "/.local/state/omarchy/current/theme/colors.toml"
     printErrors: false
     blockLoading: true
-    // A page opened from here follows theme switches: the new colors go to
-    // the server, which relays them to that page and stores nothing.
     onLoaded: if (omaglobe.syncId !== "") omaglobe.post("/api/sync", { sync: omaglobe.syncId, theme: Model.themeHex(text()) }, null, null)
   }
 
@@ -345,7 +328,6 @@ Panel {
           wrapMode: Text.WordWrap
         }
 
-        // Breaks between hints, never inside one.
         Flow {
           visible: omaglobe.helpOpen
           width: parent.width
@@ -402,7 +384,6 @@ Panel {
 
           PanelActionButton {
             id: locateButton
-            // Same height as the dropdown's field, bottom-aligned with it.
             anchors.bottom: parent.bottom
             size: Style.spacing.controlHeight
             iconText: "󰆤"

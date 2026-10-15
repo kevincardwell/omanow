@@ -76,7 +76,7 @@ The goal is that no one can be identified from what omaglobe stores or shows.
   heartbeat, and drops it 65 minutes later or when switched off.
 - No IPs, accounts, cookies or analytics. Rate limiting counts per IP in
   memory, for the current minute only. Workers Logs are off.
-- A city appears publicly only once **3** machines are there (`MIN_PEOPLE`).
+- A city appears publicly only once **3** machines are there (`MIN_PER_CITY`).
 - The map is published at most once a minute with every change in that window
   merged, so a change can't be pinned to the moment someone joined.
 - The page loads nothing from third parties except meetup covers from
@@ -84,7 +84,7 @@ The goal is that no one can be identified from what omaglobe stores or shows.
   plugin travels in the URL fragment, which browsers never send.
 
 Someone who watches a person join and then sees a small city gain one in the
-next quiet minute can still guess. Raising `MIN_PEOPLE` or the publish
+next quiet minute can still guess. Raising `MIN_PER_CITY` or the publish
 interval makes that harder.
 
 ## Releases

@@ -1,5 +1,4 @@
-// Palette keys mirror Omarchy's theme colors.toml so a plugin can pass the
-// active theme straight through. Defaults are Omarchy's Tokyo Night.
+// Keys match omarchy's colors.toml; values are its Tokyo Night.
 export const DEFAULT_THEME = {
   background: "#1a1b26",
   dark_background: "#13141c",
@@ -23,7 +22,7 @@ export const DEFAULT_THEME = {
   bright_magenta: "#bb9af7",
 };
 
-// Minimal parser for Omarchy's flat `key = "#rrggbb"` colors.toml.
+// Reads only flat `key = "#rrggbb"` lines, which is all colors.toml holds.
 export function parseColorsToml(text) {
   const theme = {};
   for (const line of text.split("\n")) {
@@ -37,11 +36,9 @@ export function resolveTheme(partial) {
   return Object.assign({}, DEFAULT_THEME, partial || {});
 }
 
-/** Palette keys in a fixed order. Shared theme links depend on it, so only
- *  ever append. */
+// Shared theme links encode keys in this order: only ever append.
 export const THEME_KEYS = Object.freeze(Object.keys(DEFAULT_THEME));
 
-/** A theme as a compact hex string for URLs: 6 hex digits per key. */
 export function encodeTheme(theme) {
   return THEME_KEYS.map((k) => resolveTheme(theme)[k].slice(1)).join("");
 }

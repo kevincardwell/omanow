@@ -1,13 +1,10 @@
-// Web host for the omaglobe scene: owns the canvas, clock, input, network
-// and the opt-in UI. Everything visual lives in ../core so another host
-// (e.g. an Omarchy shell plugin) can drive the same scene.
 
 import { CITY_BY_ID } from "../core/cities.js";
 import { createScene } from "../core/scene.js";
 import { createMeetupsUi } from "./meetups.js";
 import { createThemePicker } from "./themes.js";
 
-const TARGET_ROWS = 270; // framebuffer height the pixel scale aims for
+const TARGET_FRAMEBUFFER_ROWS = 270;
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("globe");
@@ -16,9 +13,8 @@ const ctx = canvas.getContext("2d");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scene = createScene({ autoRotate: !reducedMotion });
 
-// The plugin opens this page with its theme, its city and a sync channel in
-// the fragment, which never reaches the server. Remembered in this browser so
-// every tab follows the plugin; nothing of it is stored server-side.
+// The plugin passes its theme, city and sync id in the fragment, which
+// browsers never send to the server.
 const PLUGIN_KEY = "omaglobe.plugin";
 const fromPlugin = (() => {
   const params = new URLSearchParams(location.hash.slice(1));
@@ -33,15 +29,13 @@ const fromPlugin = (() => {
 })();
 const themes = createThemePicker({ select: $("theme"), scene, storage, linked: fromPlugin.theme });
 
-// ------------------------------------------------------------------ render
-
 let scale = 3;
 let image = null;
 
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  scale = Math.max(2, Math.min(6, Math.round(h / TARGET_ROWS)));
+  scale = Math.max(2, Math.min(6, Math.round(h / TARGET_FRAMEBUFFER_ROWS)));
   while (scale > 2 && w / scale < 240) scale--;
   const W = Math.ceil(w / scale);
   const H = Math.ceil(h / scale);
@@ -65,16 +59,13 @@ window.addEventListener("resize", resize);
 resize();
 requestAnimationFrame(frame);
 
-// ------------------------------------------------------------------- input
-
-// Canvas pixels are framebuffer pixels scaled up, so client -> fb is a divide.
-const toFb = (e) => {
+const toFramebuffer = (e) => {
   const r = canvas.getBoundingClientRect();
   return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale];
 };
 
-const pointers = new Map(); // pointerId -> { x, y }
-let press = null; // { x, y, moved } for click-vs-drag
+const pointers = new Map();
+let press = null;
 let pinch = 0;
 
 canvas.addEventListener("pointerdown", (e) => {
@@ -111,7 +102,7 @@ const release = (e) => {
   if (pointers.size === 0) {
     canvas.classList.remove("dragging");
     scene.setDragging(false);
-    if (press && !press.moved && e.type === "pointerup") meetups.select(scene.pick(...toFb(e)));
+    if (press && !press.moved && e.type === "pointerup") meetups.select(scene.pick(...toFramebuffer(e)));
     press = null;
   }
   pinch = 0;
@@ -130,12 +121,12 @@ canvas.addEventListener(
   (e) => {
     e.preventDefault();
     const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-    scene.zoomAt(Math.exp(-delta * 0.0018), ...toFb(e));
+    scene.zoomAt(Math.exp(-delta * 0.0018), ...toFramebuffer(e));
   },
   { passive: false },
 );
 
-canvas.addEventListener("dblclick", (e) => scene.zoomAt(2, ...toFb(e)));
+canvas.addEventListener("dblclick", (e) => scene.zoomAt(2, ...toFramebuffer(e)));
 
 $("zoom-in").addEventListener("click", () => scene.zoomAt(1.6));
 $("zoom-out").addEventListener("click", () => scene.zoomAt(1 / 1.6));
@@ -154,7 +145,7 @@ window.addEventListener("keydown", (e) => {
 
 const tip = $("tip");
 function hover(e) {
-  const ids = e ? scene.pick(...toFb(e)) : [];
+  const ids = e ? scene.pick(...toFramebuffer(e)) : [];
   scene.setHighlight({ hover: ids });
   canvas.classList.toggle("pointing", ids.length > 0);
   if (!ids.length) {
@@ -167,8 +158,6 @@ function hover(e) {
   tip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
   tip.style.top = `${e.clientY + 14}px`;
 }
-
-// ----------------------------------------------------------------- meetups
 
 const meetups = createMeetupsUi({
   onFocus: (ids) => {
@@ -185,18 +174,16 @@ async function loadMeetups() {
     meetups.set(data.meetups || []);
     scene.setMarkers(meetups.markers());
   } catch {
-    // Keep whatever we had; the next refresh may work.
+    // Keep what we had; the next refresh may work.
   }
 }
 loadMeetups();
 setInterval(loadMeetups, 10 * 60 * 1000);
 
-// ------------------------------------------------------------------ stream
-
 const fmt = new Intl.NumberFormat();
 let heat = { total: 0, cities: [], min: 3 };
 
-// Pulses queued in a background tab would all fire on return; skip them.
+// Pulses queued in a background tab would all fire at once on return.
 const pulse = (city) => document.hidden || scene.pulse(city);
 
 function applyHeat(data) {
@@ -206,14 +193,14 @@ function applyHeat(data) {
   $("cities").textContent = fmt.format(data.cities.length);
   $("total-label").textContent = data.total === 1 ? "omarchy machine" : "omarchy machines";
   $("cities-label").textContent = data.cities.length === 1 ? "city" : "cities";
-  // Joins arrive batched once a minute; spread them out so the globe feels live.
+  // Joins arrive batched; spread them out.
   if (!document.hidden) for (const city of data.joins || []) setTimeout(() => pulse(city), Math.random() * 20_000);
   renderYou();
 }
 
-// Connections drop: retry with backoff from 1 s to 60 s, reset only once a
-// connection has held for a while, and retry at once when the browser is
-// back online. Pings are answered by the edge without waking the server.
+// Backoff from 1 s to 60 s resets only after a connection has held for 30 s,
+// so a server that accepts and drops can't cause a tight loop. Pings are
+// answered by the edge without waking the Durable Object.
 const live = { ws: null, attempt: 0, timer: 0 };
 
 function connect() {
@@ -246,12 +233,9 @@ function connect() {
 connect();
 window.addEventListener("online", () => live.ws || connect());
 
-// Cities with machines online get a beacon now and then.
 setInterval(() => {
   if (heat.cities.length) pulse(heat.cities[Math.floor(Math.random() * heat.cities.length)][0]);
 }, 8000);
-
-// ---------------------------------------------------------------- you, plugin
 
 function storage(key, value) {
   try {
@@ -265,7 +249,6 @@ function storage(key, value) {
 
 let pluginCity = CITY_BY_ID.get(fromPlugin.city);
 
-// The plugin that opened this page switched theme, city or off.
 function followPlugin({ theme, me }) {
   if (theme) themes.follow(theme);
   if (me === undefined) return;
@@ -275,7 +258,6 @@ function followPlugin({ theme, me }) {
   renderYou();
 }
 
-// Your own city, shown only to you, when the plugin opened this page.
 function renderYou() {
   scene.setSelf(pluginCity?.id);
   const button = $("share-open");
@@ -283,8 +265,6 @@ function renderYou() {
   button.classList.toggle("on", !!pluginCity);
 }
 renderYou();
-
-// ----------------------------------------------------------- about, plugin
 
 for (const name of ["about", "plugin"]) {
   const dialog = $(name);

@@ -1,5 +1,4 @@
-// The browser imports the engine from /core/, so the static assets need a
-// copy of @omaglobe/core next to the page.
+// The browser imports the engine from /core/, next to the page.
 import { cpSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

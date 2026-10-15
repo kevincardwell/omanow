@@ -1,7 +1,5 @@
-// City catalogue shared by the server (validation) and the clients (picker,
-// rendering). Location sharing is limited to these entries: nobody's position
-// is ever more precise than "which of these cities".
-// [name, ISO country, lat, lon, weight] — weight only shapes demo data.
+// The only places anyone can be on the map.
+// [name, ISO country, lat, lon, weight]; weight only shapes demo data.
 const RAW = [
   ["Tokyo", "JP", 35.68, 139.69, 9], ["Osaka", "JP", 34.69, 135.5, 4], ["Sapporo", "JP", 43.06, 141.35, 2],
   ["Seoul", "KR", 37.57, 126.98, 7], ["Busan", "KR", 35.18, 129.08, 2], ["Beijing", "CN", 39.9, 116.4, 5],
@@ -89,8 +87,6 @@ export const CITIES = RAW.map(([name, country, lat, lon, weight]) => ({
 
 export const CITY_BY_ID = new Map(CITIES.map((c) => [c.id, c]));
 
-// Great-circle nearest city. Used client-side to snap a browser geolocation
-// fix to a city before anything leaves the device.
 export function nearestCity(lat, lon) {
   const r = Math.PI / 180;
   let best = null;

@@ -1,13 +1,7 @@
-// The one Durable Object behind the globe: omarchy machines online (from
-// plugin heartbeats) in SQLite, aggregate heat published on a timer, pushed
-// to viewers over hibernating WebSockets.
-
 import { CITIES, CITY_BY_ID } from "@omaglobe/core/cities.js";
 
-/** A city appears on the public map only once this many machines are there. */
-export const MIN_PEOPLE = 3;
-/** A machine counts as online this long after its last heartbeat. */
-export const ONLINE_MS = 65 * 60_000;
+export const MIN_PER_CITY = 3;
+export const HEARTBEAT_TTL_MS = 65 * 60_000;
 
 const PUBLISH_MS = 60_000;
 const SWEEP_MS = 15 * 60_000;
@@ -24,8 +18,7 @@ export function json(status, data, headers = {}) {
   });
 }
 
-/** Aggregate counts as the public sees them: small cities withheld. */
-export function publicHeat(counts, min = MIN_PEOPLE) {
+export function publicHeat(counts, min = MIN_PER_CITY) {
   const cities = [...counts].filter(([, n]) => n >= min).sort(([a], [b]) => a.localeCompare(b));
   return { total: cities.reduce((sum, [, n]) => sum + n, 0), cities, min };
 }
@@ -40,7 +33,6 @@ const hashId = async (id) => {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 };
 
-// Fixed one-minute windows per IP, in memory only and never stored.
 function createLimiter(perMinute) {
   let window = 0;
   let byIp = new Map();
@@ -70,7 +62,7 @@ export class Globe {
     this.ctx = ctx;
     this.sql = ctx.storage.sql;
     this.publishMs = Number(env.PUBLISH_SECONDS) * 1000 || PUBLISH_MS;
-    this.min = Number(env.MIN_PEOPLE) || MIN_PEOPLE;
+    this.min = Number(env.MIN_PER_CITY) || MIN_PER_CITY;
     this.changes = createLimiter(CHANGES_PER_MINUTE);
     this.syncs = createLimiter(SYNCS_PER_MINUTE);
     this.fake = env.DEMO === "1" ? seedDemo() : null;
@@ -90,7 +82,7 @@ export class Globe {
     if (request.method === "GET" && pathname === "/api/live") return this.live(request);
     if (request.method === "POST" && pathname === "/api/online") return this.online(request, ip);
     if (request.method === "POST" && pathname === "/api/offline") return this.offline(request);
-    if (request.method === "POST" && pathname === "/api/sync") return this.relay(request, ip);
+    if (request.method === "POST" && pathname === "/api/sync") return this.forwardToPluginPage(request, ip);
     return json(404, { error: "not found" });
   }
 
@@ -106,14 +98,14 @@ export class Globe {
 
   webSocketMessage() {}
 
-  // A heartbeat that changes nothing is never limited: it rewrites at most
-  // one row a minute. New machines and city moves are.
+  // Unchanged heartbeats aren't limited: they rewrite at most one row a
+  // minute. Only new machines and city moves are.
   async online(request, ip) {
     const body = await readBody(request);
     if (typeof body?.id !== "string" || !CLIENT_ID.test(body.id)) return json(400, { error: "invalid id" });
     if (!CITY_BY_ID.has(body.city)) return json(400, { error: "unknown city" });
     const key = await hashId(body.id);
-    // Minutes are enough to expire presence and say nothing more precise.
+    // Minute precision is all expiry needs, and all that's kept.
     const minute = Math.floor(Date.now() / 60_000);
     const prev = this.sql.exec("SELECT city, seen FROM presence WHERE key = ?", key).toArray()[0];
 
@@ -130,7 +122,7 @@ export class Globe {
     return json(200, { online: body.city, heat: await this.published() });
   }
 
-  // Going offline is never limited: it only deletes, and must always work.
+  // Never limited: switching off must always work.
   async offline(request) {
     const body = await readBody(request);
     if (typeof body?.id !== "string" || !CLIENT_ID.test(body.id)) return json(400, { error: "invalid id" });
@@ -144,9 +136,7 @@ export class Globe {
     return json(200, { online: null });
   }
 
-  // The plugin's theme switches and city changes, passed to the page it
-  // opened. Relayed to that page's socket and never stored.
-  async relay(request, ip) {
+  async forwardToPluginPage(request, ip) {
     if (this.syncs(ip)) return slowDown();
     const body = await readBody(request);
     const theme = body?.theme;
@@ -161,7 +151,7 @@ export class Globe {
       try {
         ws.send(message);
       } catch {
-        // Gone; the page will reconnect with the same sync id.
+        // Already closed; the page reconnects.
       }
     }
     return json(200, { ok: true });
@@ -182,10 +172,10 @@ export class Globe {
     return (await this.ctx.storage.get("published")) || publicHeat(new Map(), this.min);
   }
 
-  // Publishing only on this timer, never per request, batches joins so a
-  // change on the map can't be pinned to the moment one machine joined.
+  // Publishing only on this timer batches changes, so a change on the map
+  // can't be pinned to the moment one machine joined.
   async alarm() {
-    const cutoff = Math.floor((Date.now() - ONLINE_MS) / 60_000);
+    const cutoff = Math.floor((Date.now() - HEARTBEAT_TTL_MS) / 60_000);
     const stale = this.sql.exec("SELECT city, count(*) AS n FROM presence WHERE seen < ? GROUP BY city", cutoff).toArray();
     if (stale.length) {
       this.sql.exec("DELETE FROM presence WHERE seen < ?", cutoff);
@@ -203,7 +193,7 @@ export class Globe {
       try {
         ws.send(message);
       } catch {
-        // Closing sockets are skipped; they reconnect and get a fresh snapshot.
+        // Already closed; the page reconnects.
       }
     }
 

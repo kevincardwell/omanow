@@ -1,9 +1,5 @@
-// Omaglobe scene: renders the whole view (stars, globe, heat, beacons, streams
-// and the wordmark) into a plain RGBA framebuffer.
-//
-// Deliberately DOM-free: no canvas, no window, no timers. A host (the web page
-// today, a Quickshell plugin later) owns the clock, input and blitting, and
-// just calls resize / tick / input methods and copies `scene.pixels` out.
+// Renders the whole view into an RGBA framebuffer. No DOM, timers or atob:
+// the host owns the clock, input and blitting.
 
 import { CITIES, CITY_BY_ID, nearestCity } from "./cities.js";
 import { drawMicro, foldLabel, layoutText, MICRO_H, microWidth } from "./font.js";
@@ -21,15 +17,16 @@ const HEAT_H = 180;
 const MAX_PARTICLES = 400;
 const MAX_BEACONS = 28;
 const MAX_RINGS = 24;
-const MAX_STREAM_RATE = 30; // particles per second, whole globe
+const MAX_PARTICLES_PER_SECOND = 30;
 const MAX_PITCH = 75 * DEG;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 12;
-const LABEL_ZOOM = 1.6; // city labels appear from this zoom
-const ALL_CITIES_ZOOM = 2.6; // ...and include cities nobody shares yet from here
+const LABEL_ZOOM = 1.6;
+const ALL_CITIES_ZOOM = 2.6;
 const PICK_RADIUS = 6;
 
-// ---- color helpers (colors are [r, g, b]; pixels are packed little-endian ABGR)
+// Colors are [r, g, b]; pixels are packed little-endian ABGR, so a Uint32Array
+// over the RGBA byte buffer writes them in one store.
 
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
@@ -92,9 +89,7 @@ function buildPalette(theme) {
   };
 }
 
-// ---- small deterministic RNG so stars don't reshuffle on resize
-
-function rng(seed) {
+function seededRandom(seed) {
   let s = seed >>> 0;
   return () => {
     s = (s + 0x6d2b79f5) >>> 0;
@@ -115,12 +110,12 @@ export function createScene(options = {}) {
   let background = new Uint32Array(0);
   let stars = [];
 
-  // globe layout + orientation
   let cx = 0;
   let cy = 0;
   let R = 0;
-  let yaw = -10 * DEG; // longitude facing the viewer
-  let pitch = 25 * DEG; // latitude facing the viewer
+  // The longitude and latitude facing the viewer, in radians.
+  let yaw = -10 * DEG;
+  let pitch = 25 * DEG;
   let velYaw = 0;
   let velPitch = 0;
   let dragging = false;
@@ -128,11 +123,10 @@ export function createScene(options = {}) {
   let autoRotate = options.autoRotate ?? true;
   let zoom = 1;
   let zoomTarget = 1;
-  let rz = 0; // on-screen globe radius (R * zoom)
-  let anchor = null; // { lat, lon, sx, sy } kept under the cursor while zooming
+  let radiusPx = 0;
+  let zoomAnchor = null;
   let flight = null;
 
-  // logo layout
   const logoText = layoutText("OMAGLOBE");
   let logoScale = 2;
   let logoX = 0;
@@ -142,24 +136,20 @@ export function createScene(options = {}) {
     logoText.cells.flatMap((b, j) => (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1 ? [j] : [])),
   );
 
-  // data
   let heatField = new Float32Array(HEAT_W * HEAT_H);
-  let active = []; // [{ city, count, norm, emitAcc }]
+  let active = [];
   let energy = 0;
   let particles = [];
   let embers = [];
   let rings = [];
-  let self = null; // the viewer's own city, drawn only for them
+  let self = null;
   let time = 0;
 
-  // meetups & labels
-  let markers = []; // [{ id, lat, lon, upcoming, label }]
+  let markers = [];
   let hovered = new Set();
   let selected = new Set();
   const cityLabels = new Map(CITIES.map((c) => [c.id, foldLabel(c.name)]));
   const citiesByWeight = [...CITIES].sort((a, b) => b.weight - a.weight);
-
-  // ---------------------------------------------------------------- layout
 
   function resize(width, height) {
     W = Math.max(64, width | 0);
@@ -177,7 +167,7 @@ export function createScene(options = {}) {
     R = Math.floor(Math.min(avail / 2 - 8, W * 0.42));
     cx = Math.floor(W / 2);
     cy = Math.floor(logoBottom + 14 + avail / 2 + 2);
-    rz = R * zoom;
+    radiusPx = R * zoom;
 
     buildBackground();
     particles = [];
@@ -191,11 +181,11 @@ export function createScene(options = {}) {
       for (let x = 0; x < W; x++) {
         const dx = x - W / 2;
         const dy = y - H / 2;
-        const v = (dx * dx + dy * dy) / r2; // 0 center .. 1 corner
-        background[y * W + x] = v * 1.6 - 0.75 > bayer(x, y) ? palette.vignette : palette.space;
+        const cornerness = (dx * dx + dy * dy) / r2;
+        background[y * W + x] = cornerness * 1.6 - 0.75 > bayer(x, y) ? palette.vignette : palette.space;
       }
     }
-    const r = rng(0xc0ffee);
+    const r = seededRandom(0xc0ffee);
     const count = Math.floor((W * H) / 260);
     stars = [];
     for (let i = 0; i < count; i++) {
@@ -203,9 +193,7 @@ export function createScene(options = {}) {
     }
   }
 
-  // ------------------------------------------------------------------ data
-
-  // counts: iterable of [cityId, count] or {id, count}
+  // Counts as [cityId, count] pairs or { id, count } objects.
   function setHeat(counts) {
     const list = [];
     let max = 0;
@@ -224,11 +212,9 @@ export function createScene(options = {}) {
     active = list
       .map(({ city, count }) => ({ city, count, norm: Math.log2(1 + count) / logMax, emitAcc: prev.get(city.id) ?? random(), rate: 0, beacon: false }))
       .sort((a, b) => b.count - a.count);
-    // Stream rate per city, capped so the whole globe emits a steady flow no
-    // matter how many people join.
     let sum = 0;
     for (const a of active) sum += a.rate = 0.08 + 1.6 * a.norm ** 2;
-    const k = sum > MAX_STREAM_RATE ? MAX_STREAM_RATE / sum : 1;
+    const k = sum > MAX_PARTICLES_PER_SECOND ? MAX_PARTICLES_PER_SECOND / sum : 1;
     for (const a of active) a.rate *= k;
     for (let i = 0; i < Math.min(MAX_BEACONS, active.length); i++) active[i].beacon = true;
     energy = Math.min(1, Math.log10(1 + total) / 3);
@@ -239,8 +225,8 @@ export function createScene(options = {}) {
     heatField = new Float32Array(HEAT_W * HEAT_H);
     const cellDeg = 360 / HEAT_W;
     for (const { city, norm } of active) {
-      const sigma = 1.1 + 2.1 * norm; // degrees
-      const reach = sigma * 3;
+      const sigmaDeg = 1.1 + 2.1 * norm;
+      const reach = sigmaDeg * 3;
       const amp = 0.3 + 0.7 * norm * norm;
       const cosLat = Math.max(0.2, Math.cos(city.lat * DEG));
       const rowMin = Math.max(0, Math.floor((90 - city.lat - reach) / cellDeg));
@@ -257,13 +243,13 @@ export function createScene(options = {}) {
           const d2 = dLat * dLat + dLon * dLon;
           if (d2 > reach * reach) continue;
           const i = row * HEAT_W + col;
-          heatField[i] = 1 - (1 - heatField[i]) * (1 - amp * Math.exp(-d2 / (2 * sigma * sigma)));
+          heatField[i] = 1 - (1 - heatField[i]) * (1 - amp * Math.exp(-d2 / (2 * sigmaDeg * sigmaDeg)));
         }
       }
     }
   }
 
-  // Someone just opted in: shockwave on the globe and a burst into the logo.
+  // A shockwave at the city and a burst of particles into the logo.
   function pulse(cityId) {
     const city = CITY_BY_ID.get(cityId);
     if (!city || rings.length >= MAX_RINGS) return;
@@ -272,7 +258,7 @@ export function createScene(options = {}) {
     if (p.z > 0.05 && onScreen(p)) for (let i = 0; i < 14; i++) spawnParticle(p.sx, p.sy, 1, i * 0.035);
   }
 
-  // Meetup markers: [{ id, lat, lon, upcoming, label }] — label is plain text.
+  // [{ id, lat, lon, upcoming, label }]; labels are drawn as plain text.
   function setMarkers(list) {
     markers = list
       .filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
@@ -285,7 +271,7 @@ export function createScene(options = {}) {
       });
   }
 
-  // Marks the viewer's own city, whether or not it is on the public map yet.
+  // The viewer's own city, drawn whether or not it is on the public map.
   function setSelf(cityId) {
     self = CITY_BY_ID.get(cityId) || null;
   }
@@ -307,10 +293,8 @@ export function createScene(options = {}) {
     return hits.sort((a, b) => a.d - b.d).map((h) => h.id);
   }
 
-  // ----------------------------------------------------------------- input
-
   function rotateBy(dx, dy) {
-    const k = 1 / Math.max(1, rz);
+    const k = 1 / Math.max(1, radiusPx);
     yaw -= dx * k;
     pitch = clamp(pitch + dy * k, -MAX_PITCH, MAX_PITCH);
     velYaw = -dx * k * 60;
@@ -323,7 +307,7 @@ export function createScene(options = {}) {
     idle = 0;
     if (on) {
       velYaw = velPitch = 0;
-      anchor = null;
+      zoomAnchor = null;
       flight = null;
     }
   }
@@ -332,7 +316,7 @@ export function createScene(options = {}) {
   function zoomAt(factor, sx = cx, sy = cy) {
     zoomTarget = clamp(zoomTarget * factor, MIN_ZOOM, MAX_ZOOM);
     const hit = unproject(sx, sy);
-    anchor = hit ? { lat: hit.lat, lon: hit.lon, sx, sy } : null;
+    zoomAnchor = hit ? { lat: hit.lat, lon: hit.lon, sx, sy } : null;
     flight = null;
     idle = 0;
   }
@@ -350,7 +334,7 @@ export function createScene(options = {}) {
       dur: 0.8 + dist * 0.6,
       dip: Math.min(0.6, dist / 2),
     };
-    anchor = null;
+    zoomAnchor = null;
     velYaw = velPitch = 0;
     idle = 0;
   }
@@ -360,8 +344,6 @@ export function createScene(options = {}) {
     velPitch += dPitchDeg * DEG;
     idle = 0;
   }
-
-  // ------------------------------------------------------------ projection
 
   function project(latDeg, lonDeg, lift = 1) {
     const lat = latDeg * DEG;
@@ -374,13 +356,13 @@ export function createScene(options = {}) {
     const x = X * lift;
     const y = (Y * cp - Z * sp) * lift;
     const z = (Y * sp + Z * cp) * lift;
-    return { x, y, z, sx: cx + x * rz, sy: cy - y * rz };
+    return { x, y, z, sx: cx + x * radiusPx, sy: cy - y * radiusPx };
   }
 
   // Framebuffer point -> { lat, lon } in degrees, or null off the globe.
   function unproject(sx, sy) {
-    const x = (sx - cx) / rz;
-    const y = (cy - sy) / rz;
+    const x = (sx - cx) / radiusPx;
+    const y = (cy - sy) / radiusPx;
     const r2 = x * x + y * y;
     if (r2 >= 1) return null;
     const z = Math.sqrt(1 - r2);
@@ -396,8 +378,8 @@ export function createScene(options = {}) {
   // Solve yaw/pitch so that (lat, lon) projects to (sx, sy) at the current
   // zoom. Returns false when that isn't reachable (then we just zoom).
   function orient(latDeg, lonDeg, sx, sy) {
-    const x = (sx - cx) / rz;
-    const y = (cy - sy) / rz;
+    const x = (sx - cx) / radiusPx;
+    const y = (cy - sy) / radiusPx;
     const lat = latDeg * DEG;
     const cosLat = Math.cos(lat);
     if (x * x + y * y >= 1 || Math.abs(x) >= cosLat) return false;
@@ -416,15 +398,12 @@ export function createScene(options = {}) {
 
   const onScreen = (p) => p.sx >= 0 && p.sy >= 0 && p.sx < W && p.sy < H;
 
-  // ------------------------------------------------------------ simulation
-
   function spawnParticle(sx, sy, norm, delay = 0) {
     if (particles.length >= MAX_PARTICLES) return;
     const cell = logoText.cells[Math.floor(random() * logoText.cells.length)];
     const cellIndex = logoText.cells.indexOf(cell);
     const tx = logoX + cell.x * logoScale + logoScale / 2;
     const ty = logoY + cell.y * logoScale + logoScale / 2;
-    // Arc outward from the globe, then sweep up into the wordmark.
     const out = sx < cx ? -1 : 1;
     const c1x = sx + out * (20 + random() * 40);
     const c1y = sy - 10 - random() * 30;
@@ -461,15 +440,15 @@ export function createScene(options = {}) {
       zoom = Math.exp(Math.log(from.zoom) + (Math.log(to.zoom) - Math.log(from.zoom)) * e) * (1 - flight.dip * Math.sin(Math.PI * e));
       zoom = Math.max(MIN_ZOOM, zoom);
       zoomTarget = to.zoom;
-      rz = R * zoom;
+      radiusPx = R * zoom;
       if (flight.t >= 1) flight = null;
     } else if (zoom !== zoomTarget) {
       zoom += (zoomTarget - zoom) * (1 - Math.exp(-dt * 14));
       if (Math.abs(zoom - zoomTarget) < 1e-3) zoom = zoomTarget;
-      rz = R * zoom;
-      if (anchor && !orient(anchor.lat, anchor.lon, anchor.sx, anchor.sy)) anchor = null;
+      radiusPx = R * zoom;
+      if (zoomAnchor && !orient(zoomAnchor.lat, zoomAnchor.lon, zoomAnchor.sx, zoomAnchor.sy)) zoomAnchor = null;
     } else {
-      anchor = null;
+      zoomAnchor = null;
     }
 
     if (!dragging && !flight) {
@@ -486,7 +465,6 @@ export function createScene(options = {}) {
     }
     yaw = ((yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
 
-    // Hot cities facing us stream into the logo.
     for (const a of active) {
       a.emitAcc += dt * a.rate;
       if (a.emitAcc < 1) continue;
@@ -521,8 +499,6 @@ export function createScene(options = {}) {
     rings = rings.filter((r) => r.age < 1.6);
   }
 
-  // ------------------------------------------------------------- rendering
-
   function put(x, y, color) {
     x |= 0;
     y |= 0;
@@ -542,19 +518,19 @@ export function createScene(options = {}) {
     const cp = Math.cos(pitch);
     const sp = Math.sin(pitch);
     const rim = Math.max(3, Math.round(R * 0.07));
-    const invR = 1 / rz;
+    const invR = 1 / radiusPx;
     const lx = -0.45;
     const ly = 0.55;
     const lz = 0.7;
     const heatShimmer = time * 2.2;
     const heatGain = Math.min(1, 1.2 / Math.sqrt(zoom));
-    const gridWidth = 0.6 / zoom; // degrees, so lines stay ~1px wide at any zoom
+    const gridWidthDeg = 0.6 / zoom;
     const heatLevels = palette.heat.length;
 
-    const y0 = Math.max(0, Math.floor(cy - rz - rim));
-    const y1 = Math.min(H - 1, Math.ceil(cy + rz + rim));
-    const x0 = Math.max(0, Math.floor(cx - rz - rim));
-    const x1 = Math.min(W - 1, Math.ceil(cx + rz + rim));
+    const y0 = Math.max(0, Math.floor(cy - radiusPx - rim));
+    const y1 = Math.min(H - 1, Math.ceil(cy + radiusPx + rim));
+    const x0 = Math.max(0, Math.floor(cx - radiusPx - rim));
+    const x1 = Math.min(W - 1, Math.ceil(cx + radiusPx + rim));
 
     for (let py = y0; py <= y1; py++) {
       const y = (cy - py - 0.5) * invR;
@@ -564,9 +540,8 @@ export function createScene(options = {}) {
         const d = bayer(px, py);
 
         if (r2 > 1) {
-          // Atmosphere: dithered halo, brighter toward the lit limb.
           const r = Math.sqrt(r2);
-          const fall = 1 - ((r - 1) * rz) / rim;
+          const fall = 1 - ((r - 1) * radiusPx) / rim;
           if (fall <= 0) continue;
           const lit = 0.55 + 0.45 * ((x * lx + y * ly) / r);
           const v = fall * fall * lit * 2.6;
@@ -595,7 +570,7 @@ export function createScene(options = {}) {
           const lonD = lon / DEG;
           const gLat = Math.abs(latD - Math.round(latD / 15) * 15);
           const gLon = Math.abs(lonD - Math.round(lonD / 15) * 15) * Math.cos(lat);
-          if (gLat < gridWidth || gLon < gridWidth) color = palette.grid;
+          if (gLat < gridWidthDeg || gLon < gridWidthDeg) color = palette.grid;
         }
 
         const hi = Math.min(HEAT_H - 1, (v * HEAT_H) | 0) * HEAT_W + Math.min(HEAT_W - 1, (u * HEAT_W) | 0);
@@ -617,26 +592,25 @@ export function createScene(options = {}) {
       const base = project(a.city.lat, a.city.lon);
       if (base.z < 0.02) continue;
       const hPx = (0.03 + 0.14 * a.norm * a.norm) * R;
-      const h = hPx / rz;
+      const h = hPx / radiusPx;
       const steps = Math.max(2, Math.ceil(hPx * 1.2));
       for (let s = 0; s <= steps; s++) {
         const lift = 1 + (h * s) / steps;
         const x = base.x * lift;
         const y = base.y * lift;
         const z = base.z * lift;
-        if (z < 0 && x * x + y * y < 1) continue; // behind the globe
+        if (z < 0 && x * x + y * y < 1) continue;
         const k = s / steps;
         const lvl = Math.min(heatLevels - 1, Math.floor(2 + k * (heatLevels - 2) * (0.5 + 0.5 * a.norm)));
-        put(cx + x * rz, cy - y * rz, palette.heat[lvl]);
+        put(cx + x * radiusPx, cy - y * radiusPx, palette.heat[lvl]);
       }
-      // Blinking tip.
       const blink = Math.sin(time * 4 + a.city.lat) > 0.3;
       if (blink) {
         const tip = 1 + h;
         const tx = base.x * tip;
         const ty = base.y * tip;
         if (!(base.z < 0 && tx * tx + ty * ty < 1)) {
-          put(cx + tx * rz, cy - ty * rz - 1, palette.heat[heatLevels - 1]);
+          put(cx + tx * radiusPx, cy - ty * radiusPx - 1, palette.heat[heatLevels - 1]);
         }
       }
     }
@@ -697,7 +671,6 @@ export function createScene(options = {}) {
       const c = cells[i];
       const ox = logoX + c.x * s;
       const oy = logoY + c.y * s;
-      // Base brightness tracks how many people are on the map.
       const band = Math.abs(c.x + c.y * 0.6 - sweep) < 1.2 ? 0.35 : 0;
       const t = Math.min(1, 0.25 + energy * 0.55 + band - c.y * 0.03);
       const base = t < 0.5 ? mix(palette.logoBase[0], palette.logoBase[1], t * 2) : mix(palette.logoBase[1], palette.logoBase[2], (t - 0.5) * 2);
@@ -746,7 +719,6 @@ export function createScene(options = {}) {
         continue;
       }
 
-      // Sonar ping from the venue.
       const age = (time * 0.45 + m.phase / TAU) % 1;
       const radius = 1 + age * 9;
       const n = Math.ceil(radius * TAU);
@@ -755,7 +727,6 @@ export function createScene(options = {}) {
         put(x + Math.cos(a) * radius, y + Math.sin(a) * radius * Math.max(0.35, p.z), palette.meetupRing);
       }
 
-      // Pixel pin: diamond head on a short stem, bobbing a little.
       const bob = Math.sin(time * 2.4 + m.phase) > 0 ? 1 : 0;
       const color = focus ? palette.focus : palette.meetup;
       const hy = y - 6 - bob;
@@ -776,7 +747,6 @@ export function createScene(options = {}) {
     const x = Math.round(p.sx);
     const y = Math.round(p.sy);
     const r = Math.sin(time * 3) > 0 ? 3 : 4;
-    // Corner brackets with a drop shadow, so it reads on land, sea and heat.
     for (const [ox, oy, c] of [[1, 1, palette.selfShadow], [0, 0, palette.self]]) {
       for (let i = -r; i <= r; i++) {
         if (Math.abs(i) < r - 1) continue;
@@ -833,7 +803,6 @@ export function createScene(options = {}) {
       return parts;
     };
 
-    // Meetup cities first, in meetup green.
     for (const m of markers) {
       if (placed >= budget) return;
       if (!m.upcoming) continue;

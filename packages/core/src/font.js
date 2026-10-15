@@ -1,5 +1,4 @@
-// Chunky block glyphs in the spirit of the Omarchy wordmark. Only the letters
-// the logo needs.
+// Only the letters the wordmark needs.
 const GLYPHS = {
   O: [".#####.", "##...##", "##...##", "##...##", "##...##", "##...##", ".#####."],
   M: [".########.", "##..##..##", "##..##..##", "##..##..##", "##..##..##", "##..##..##", "##..##..##"],
@@ -12,7 +11,7 @@ const GLYPHS = {
 
 export const GLYPH_H = 7;
 
-// Returns the lit cells of `text` in glyph-cell units plus overall size.
+// Cells and size are in glyph-cell units, not pixels.
 export function layoutText(text, gap = 1) {
   const cells = [];
   let x = 0;
@@ -57,7 +56,6 @@ export function microWidth(text) {
   return text.length ? text.length * 4 - 1 : 0;
 }
 
-// Calls plot(x, y) for every lit pixel of `text` drawn at (x, y).
 export function drawMicro(text, x, y, plot) {
   for (let i = 0; i < text.length; i++) {
     const g = MICRO[text[i]];

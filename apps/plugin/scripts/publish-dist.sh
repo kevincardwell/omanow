@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Mirrors dist/ into the plugin repo that `omarchy plugin add` clones. Its
-# default branch is the release channel: `omarchy plugin update` fast-forwards
-# to it, so it only ever moves here, on a release.
+# `omarchy plugin update` fast-forwards to the plugin repo's default branch,
+# so that branch must only move on a release.
 set -euo pipefail
 
 REPO="${PLUGIN_REPO:-git@github.com:mark-omarov/omaglobe-plugin.git}"

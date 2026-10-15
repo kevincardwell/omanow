@@ -12,7 +12,7 @@
     "reset": "node -e \"require('node:fs').rmSync('.wrangler/state', { recursive: true, force: true })\"",
     "test": "node --test",
     "deploy": "pnpm build && wrangler deploy",
-    "dev:solo": "pnpm build && wrangler dev --var MIN_PEOPLE:1 --var PUBLISH_SECONDS:5"
+    "dev:solo": "pnpm build && wrangler dev --var MIN_PER_CITY:1 --var PUBLISH_SECONDS:5"
   },
   "dependencies": {
     "@omaglobe/core": "workspace:*"

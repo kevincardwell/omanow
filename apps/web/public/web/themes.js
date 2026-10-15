@@ -1,7 +1,3 @@
-// Theme picker for the web host: the stock omarchy themes, plus "your omarchy
-// theme" when the plugin opened the page with its colors (or pushes new ones
-// after a theme switch). The choice is remembered in this browser only.
-
 import { decodeTheme, resolveTheme } from "../core/theme.js";
 import { THEMES } from "../core/themes.js";
 
@@ -53,7 +49,6 @@ export function createThemePicker({ select, scene, storage, linked }) {
   choose(decodeTheme(linked) || saved.startsWith(`${CUSTOM}:`) ? CUSTOM : saved || "tokyo-night");
 
   return {
-    /** The plugin's colors changed: follow them. */
     follow(hex) {
       if (!decodeTheme(hex)) return;
       customHex = hex;

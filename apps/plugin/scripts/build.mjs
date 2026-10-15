@@ -1,6 +1,4 @@
-// Assembles dist/: the exact tree published to the plugin repo and cloned by
-// `omarchy plugin add`. QML imports ES modules only as .mjs, so the shared
-// core files are copied under that extension.
+// QML imports ES modules only as .mjs.
 import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

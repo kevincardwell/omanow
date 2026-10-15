@@ -1,7 +1,6 @@
 import { LAND_B64, LAND_H, LAND_W } from "./land-data.js";
 
-// Hand-rolled base64 decode: the core must run where atob/Buffer don't exist
-// (e.g. a Quickshell/QML JS engine).
+// QML's JavaScript engine has no atob or Buffer.
 function decodeBase64(s) {
   const map = new Uint8Array(128);
   const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -23,7 +22,6 @@ function decodeBase64(s) {
 
 const bits = decodeBase64(LAND_B64);
 
-// Unpacked to one byte per cell so the per-pixel globe loop is a single lookup.
 export const LAND = new Uint8Array(LAND_W * LAND_H);
 for (let i = 0; i < LAND.length; i++) LAND[i] = (bits[i >> 3] >> (i & 7)) & 1;
 export { LAND_W, LAND_H };
