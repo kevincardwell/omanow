@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, mock, test } from "node:test";
-import { Globe, MIN_PEOPLE, ONLINE_MS, RETENTION_DAYS } from "../worker/globe.js";
+import { Globe, MIN_PEOPLE, ONLINE_MS } from "../worker/globe.js";
 import worker from "../worker/index.js";
 
 globalThis.WebSocketRequestResponsePair ??= class {};
@@ -66,94 +66,86 @@ const call = (path, { body, ip = `10.0.0.${++ipCounter}`, headers = {} } = {}) =
     env,
   );
 const heat = () => call("/api/heat").then((r) => r.json());
-const share = (id, city) => call("/api/share", { body: { id, city } });
-const person = (n) => `person-${String(n).padStart(12, "0")}`;
+const online = (id, city, ip) => call("/api/online", { body: { id, city }, ip });
+const machine = (n) => `machine-${String(n).padStart(12, "0")}`;
+const empty = { total: 0, cities: [], min: MIN_PEOPLE };
 
 test("heat is published on the timer, not per request", async () => {
-  await share(person(1), "berlin-de");
-  await share(person(2), "berlin-de");
-  await share(person(3), "berlin-de");
-  assert.deepEqual(await heat(), { total: 0, cities: [], online: 0, onlineCities: [], min: MIN_PEOPLE });
+  for (const n of [1, 2, 3]) await online(machine(n), "berlin-de");
+  assert.deepEqual(await heat(), empty);
   assert.ok((await ctx.storage.getAlarm()) > NOW, "a publish is scheduled");
 
   const viewer = { sent: [], send: (m) => viewer.sent.push(JSON.parse(m)) };
   ctx.sockets.push(viewer);
   await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), { total: 3, cities: [["berlin-de", 3]], online: 0, onlineCities: [], min: MIN_PEOPLE });
-  assert.deepEqual(viewer.sent, [{ type: "heat", total: 3, cities: [["berlin-de", 3]], online: 0, onlineCities: [], min: MIN_PEOPLE, joins: ["berlin-de"] }]);
+  assert.deepEqual(await heat(), { total: 3, cities: [["berlin-de", 3]], min: MIN_PEOPLE });
+  assert.deepEqual(viewer.sent, [{ type: "heat", total: 3, cities: [["berlin-de", 3]], min: MIN_PEOPLE, joins: ["berlin-de"] }]);
 });
 
-test(`cities with fewer than ${MIN_PEOPLE} people stay off the public map`, async () => {
-  await share(person(1), "tokyo-jp");
-  await share(person(2), "tokyo-jp");
+test(`cities with fewer than ${MIN_PEOPLE} machines stay off the public map`, async () => {
+  await online(machine(1), "tokyo-jp");
+  await online(machine(2), "tokyo-jp");
   await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), { total: 0, cities: [], online: 0, onlineCities: [], min: MIN_PEOPLE });
-  await share(person(3), "tokyo-jp");
+  assert.deepEqual(await heat(), empty);
+  await online(machine(3), "tokyo-jp");
   await ctx.fireAlarm(globe);
   assert.deepEqual((await heat()).cities, [["tokyo-jp", 3]]);
+
+  const local = new Globe(fakeCtx(), { MIN_PEOPLE: "1" });
+  env.GLOBE.get = () => local;
+  await online(machine(9), "oslo-no");
+  await local.alarm();
+  assert.deepEqual((await heat()).cities, [["oslo-no", 1]], "MIN_PEOPLE can be lowered for local testing");
 });
 
-test("move and unshare keep counts right; raw ids are never stored", async () => {
-  for (const n of [1, 2, 3]) await share(person(n), "lisbon-pt");
-  await share(person(1), "porto-pt");
-  await call("/api/unshare", { body: { id: person(2) } });
-  const rows = ctx.db.prepare("SELECT key, city FROM optins ORDER BY city").all();
+test("moving and going offline keep counts right; raw ids are never stored", async () => {
+  for (const n of [1, 2, 3]) await online(machine(n), "lisbon-pt");
+  await online(machine(1), "porto-pt");
+  await call("/api/offline", { body: { id: machine(2) } });
+  const rows = ctx.db.prepare("SELECT key, city FROM presence ORDER BY city").all();
   assert.deepEqual(rows.map((r) => r.city), ["lisbon-pt", "porto-pt"]);
   for (const { key } of rows) assert.match(key, /^[0-9a-f]{64}$/);
-  assert.ok(!JSON.stringify(rows).includes("person-"));
-  assert.deepEqual(ctx.db.prepare("SELECT city, n FROM counts ORDER BY city").all().map((r) => [r.city, r.n]), [
+  assert.ok(!JSON.stringify(rows).includes("machine-"));
+  assert.deepEqual(ctx.db.prepare("SELECT city, n FROM online ORDER BY city").all().map((r) => [r.city, r.n]), [
     ["lisbon-pt", 1],
     ["porto-pt", 1],
   ]);
 });
 
-test("rejects bad input, cross-site writes and floods", async () => {
-  assert.equal((await share(person(1), "atlantis-xx")).status, 400);
-  assert.equal((await share("short", "berlin-de")).status, 400);
-  assert.equal((await call("/api/share", { body: "{" })).status, 400);
-  assert.equal((await call("/api/share", { body: { id: person(1), city: "berlin-de", pad: "x".repeat(2000) } })).status, 413);
-  assert.equal((await call("/api/share", { body: { id: person(1), city: "berlin-de" }, headers: { origin: "https://evil.test" } })).status, 403);
-  assert.equal((await call("/api/share", { body: { id: person(1), city: "berlin-de" }, headers: { "content-type": "text/plain" } })).status, 415);
-
-  const statuses = [];
-  for (let n = 0; n < 8; n++) statuses.push((await call("/api/share", { body: { id: person(n), city: "berlin-de" }, ip: "10.9.9.9" })).status);
-  assert.deepEqual(statuses, [200, 200, 200, 200, 200, 200, 429, 429]);
-  assert.equal((await call("/api/unshare", { body: { id: person(0) }, ip: "10.9.9.9" })).status, 200, "stopping is never limited");
-  assert.equal((await call("/api/share", { body: { id: person(9), city: "berlin-de" }, ip: "10.9.9.8" })).status, 200);
-  mock.timers.tick(60_000);
-  assert.equal((await call("/api/share", { body: { id: person(7), city: "berlin-de" }, ip: "10.9.9.9" })).status, 200);
-});
-
-test(`opt-ins expire after ${RETENTION_DAYS} days without a visit`, async () => {
-  for (const n of [1, 2, 3, 4]) await share(person(n), "berlin-de");
+test("machines drop off when heartbeats stop", async () => {
+  for (const n of [1, 2, 3, 4]) await online(machine(n), "oslo-no");
   await ctx.fireAlarm(globe);
-  assert.equal(await ctx.storage.getAlarm(), NOW + 86_400_000, "a daily sweep stays scheduled");
-
-  mock.timers.tick(100 * 86_400_000);
-  await share(person(4), "berlin-de"); // a return visit re-affirms
-  mock.timers.tick((RETENTION_DAYS - 99) * 86_400_000);
-  await ctx.fireAlarm(globe);
-  assert.deepEqual(ctx.db.prepare("SELECT count(*) AS n FROM optins").get().n, 1);
-  assert.deepEqual((await heat()).cities, []);
-});
-
-test("plugins count as online until their heartbeats stop", async () => {
-  const online = (id, city) => call("/api/online", { body: { id, city } });
-  await share(person(1), "oslo-no");
-  for (const n of [2, 3, 4]) await online(person(n), "oslo-no");
-  await online(person(5), "oslo-no");
-  await call("/api/offline", { body: { id: person(5) } });
-  await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), { total: 4, cities: [["oslo-no", 4]], online: 3, onlineCities: [["oslo-no", 3]], min: MIN_PEOPLE });
   assert.equal(await ctx.storage.getAlarm(), NOW + 15 * 60_000, "presence is swept every 15 minutes");
 
   mock.timers.tick(ONLINE_MS - 60_000);
-  const beat = await online(person(2), "oslo-no").then((r) => r.json());
-  assert.equal(beat.heat.online, 3, "a heartbeat returns the published map");
+  const beat = await online(machine(1), "oslo-no").then((r) => r.json());
+  assert.equal(beat.heat.total, 4, "a heartbeat returns the published map");
   mock.timers.tick(2 * 60_000);
   await ctx.fireAlarm(globe);
   assert.deepEqual(ctx.db.prepare("SELECT city, n FROM online").all().map((r) => [r.city, r.n]), [["oslo-no", 1]]);
-  assert.deepEqual((await heat()).cities, [], "1 web + 1 online is below the threshold");
+  assert.deepEqual((await heat()).cities, []);
+});
+
+test("limits new machines and moves, never plain heartbeats or going offline", async () => {
+  const ip = "10.9.9.9";
+  const statuses = [];
+  for (let n = 0; n < 14; n++) statuses.push((await online(machine(n), "berlin-de", ip)).status);
+  assert.deepEqual(statuses.slice(10), [200, 200, 429, 429]);
+  for (let i = 0; i < 20; i++) assert.equal((await online(machine(0), "berlin-de", ip)).status, 200, "unchanged heartbeat");
+  assert.equal((await call("/api/offline", { body: { id: machine(1) }, ip })).status, 200);
+  assert.equal((await online(machine(20), "berlin-de", "10.9.9.8")).status, 200, "other IPs have their own budget");
+  mock.timers.tick(60_000);
+  assert.equal((await online(machine(13), "berlin-de", ip)).status, 200, "the window resets");
+});
+
+test("rejects bad input and cross-site writes", async () => {
+  assert.equal((await online(machine(1), "atlantis-xx")).status, 400);
+  assert.equal((await online("short", "berlin-de")).status, 400);
+  assert.equal((await call("/api/online", { body: "{" })).status, 400);
+  assert.equal((await call("/api/online", { body: { id: machine(1), city: "berlin-de", pad: "x".repeat(2000) } })).status, 400);
+  assert.equal((await call("/api/online", { body: { id: machine(1), city: "berlin-de" }, headers: { origin: "https://evil.test" } })).status, 403);
+  assert.equal((await call("/api/online", { body: { id: machine(1), city: "berlin-de" }, headers: { "content-type": "text/plain" } })).status, 415);
+  assert.equal((await call("/api/share", { body: { id: machine(1), city: "berlin-de" } })).status, 404, "website sharing is gone");
 });
 
 test("plugin changes reach only the page it opened", async () => {
@@ -174,7 +166,7 @@ test("plugin changes reach only the page it opened", async () => {
   assert.equal((await relay({ sync: "short", theme: "81a1c1" })).status, 400);
   assert.equal((await relay({ sync: "abcdef0123456789abcd", me: "atlantis-xx" })).status, 400);
   assert.equal((await relay({ sync: "abcdef0123456789abcd" })).status, 400);
-  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM optins").get().n, 0, "nothing is stored");
+  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM presence").get().n, 0, "nothing is stored");
 });
 
 test("unknown routes and methods 404", async () => {

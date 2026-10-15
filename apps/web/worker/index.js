@@ -7,7 +7,7 @@ import { createMeetupsSource, MEETUPS_PAGE } from "./meetups.js";
 export { Globe } from "./globe.js";
 
 const meetups = createMeetupsSource();
-const GLOBE_PATHS = new Set(["/api/heat", "/api/live", "/api/share", "/api/unshare", "/api/online", "/api/offline", "/api/sync"]);
+const GLOBE_PATHS = new Set(["/api/heat", "/api/live", "/api/online", "/api/offline", "/api/sync"]);
 
 // Blocks cross-site form posts and other sites' scripts from writing opt-ins.
 function crossSite(request, url) {
