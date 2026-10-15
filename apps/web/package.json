@@ -11,7 +11,8 @@
     "demo": "pnpm build && wrangler dev --persist-to .wrangler/demo --var DEMO:1 --var PUBLISH_SECONDS:3",
     "reset": "node -e \"require('node:fs').rmSync('.wrangler/state', { recursive: true, force: true })\"",
     "test": "node --test",
-    "deploy": "pnpm build && wrangler deploy"
+    "deploy": "pnpm build && wrangler deploy",
+    "dev:solo": "pnpm build && wrangler dev --var MIN_PEOPLE:1 --var PUBLISH_SECONDS:5"
   },
   "dependencies": {
     "@omaglobe/core": "workspace:*"

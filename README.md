@@ -1,8 +1,8 @@
 # omaglobe
 
-A pixel-art globe of Omarchy users. People opt in to put their **city** on the
-map (never coordinates), from the website or from a globe in their Omarchy
-bar. Cities glow as a heatmap, particles stream from the hot spots into the
+A pixel-art globe of omarchy machines online. The omarchy plugin puts a
+globe in your bar; switch it on and your **city** (never coordinates) counts
+on the map while the machine is online. Visiting the site shares nothing. Cities glow as a heatmap, particles stream from the hot spots into the
 `OMAGLOBE` wordmark, and Omarchy meetups from
 [omarchy.org/meetups](https://omarchy.org/meetups) show as green pins.
 
@@ -13,6 +13,7 @@ Assets, the API in a Worker, and opt-ins in one Durable Object with SQLite.
 pnpm install
 pnpm demo            # synthetic crowd, updates every 3 s → http://localhost:8787
 pnpm dev             # real data only, stored under apps/web/.wrangler/state
+pnpm dev:solo        # same, but one machine shows and changes publish in 5 s
 pnpm reset           # wipe that local data
 pnpm test
 pnpm plugin:install  # build the bar widget and load it into your Omarchy shell
@@ -65,19 +66,17 @@ the process: after changing `model.mjs` or core, run `omarchy restart shell`.
 
 The goal is that no one can be identified from what omaglobe stores or shows.
 
-- Sharing is off by default, on the site and in the plugin.
-- Only a city id from `packages/core/src/cities.js` is accepted. Geolocation
-  and the weather widget's location are snapped to a city on the device and
-  never sent.
-- The site stores the SHA-256 of a random browser token, the city and the
-  day it was last seen, for 180 days after the last visit or until **stop**.
+- Only the plugin shares, and it's off until switched on. The site stores
+  nothing about visitors.
+- Only a city id from `packages/core/src/cities.js` is accepted. The weather
+  widget's location and the timezone are snapped to a city on the machine
+  and never sent.
 - The plugin sends a random install id and the city once an hour while on.
   The server keeps the id's hash, the city and the minute of the last
-  heartbeat, and drops it 65 minutes later or on **Go offline**.
+  heartbeat, and drops it 65 minutes later or when switched off.
 - No IPs, accounts, cookies or analytics. Rate limiting counts per IP in
   memory, for the current minute only. Workers Logs are off.
-- A city appears publicly only once **3** people are there (`MIN_PEOPLE`), for
-  the heatmap and for the online count separately.
+- A city appears publicly only once **3** machines are there (`MIN_PEOPLE`).
 - The map is published at most once a minute with every change in that window
   merged, so a change can't be pinned to the moment someone joined.
 - The page loads nothing from third parties except meetup covers from
@@ -112,9 +111,10 @@ General).
 ## Free plan budget
 
 100k Worker requests/day (static files don't count), and per Durable Object
-100k requests, 5M SQLite rows read and 100k rows written per day. A web share
-writes a few rows; a plugin heartbeat is one request and one row an hour, so
-about 4,000 always-on plugins fit. Over a limit, requests fail until 00:00
+100k requests, 5M SQLite rows read and 100k rows written per day. A plugin
+heartbeat is one request and one row an hour, so about 4,000 always-on
+machines fit. Heartbeats that change nothing are never rate limited; new
+machines and city moves get 12 a minute per IP. Over a limit, requests fail until 00:00
 UTC.
 
 ## License

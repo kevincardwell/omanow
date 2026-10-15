@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "dev": "pnpm --filter @omaglobe/web dev",
+    "dev:solo": "pnpm --filter @omaglobe/web dev:solo",
     "demo": "pnpm --filter @omaglobe/web demo",
     "reset": "pnpm --filter @omaglobe/web reset",
     "changeset": "changeset",
