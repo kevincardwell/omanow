@@ -22,7 +22,8 @@ const fromPlugin = (() => {
   const fresh = { theme: params.get("theme"), city: params.get("me"), sync: params.get("sync") };
   try {
     if (fresh.sync) localStorage.setItem(PLUGIN_KEY, JSON.stringify(fresh));
-    return JSON.parse(localStorage.getItem(PLUGIN_KEY)) || {};
+    const remembered = JSON.parse(localStorage.getItem(PLUGIN_KEY)) || {};
+    return { ...remembered, theme: fresh.theme || remembered.theme };
   } catch {
     return fresh;
   }
