@@ -10,7 +10,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "build:land": "node scripts/build-land.mjs"
+    "build:land": "node scripts/build-land.mjs",
+    "sync:themes": "node scripts/sync-themes.mjs"
   },
   "devDependencies": {
     "topojson-client": "^3.1.0",

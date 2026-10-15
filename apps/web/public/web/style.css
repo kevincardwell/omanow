@@ -224,3 +224,21 @@ canvas.pointing { cursor: pointer; }
   .panel.list .city { display: none; }
   .panel.list li button { grid-template-columns: 52px 1fr; }
 }
+
+.theme {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  z-index: 3;
+  color: var(--fg-dim);
+}
+.theme select {
+  font: inherit;
+  color: var(--fg-bright);
+  background: var(--bg);
+  border: 0;
+  border-bottom: 1px dotted var(--fg-dim);
+  padding: 2px 0;
+  cursor: pointer;
+}
+.theme select:focus-visible { outline: 1px solid var(--accent); }

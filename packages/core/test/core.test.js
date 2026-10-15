@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { CITIES, nearestCity } from "../src/cities.js";
 import { isLand } from "../src/land.js";
 import { createScene } from "../src/scene.js";
-import { parseColorsToml } from "../src/theme.js";
+import { decodeTheme, encodeTheme, parseColorsToml, THEME_KEYS } from "../src/theme.js";
+import { THEMES } from "../src/themes.js";
 
 test("land mask matches known places", () => {
   for (const [lat, lon] of [[52.5, 13.4], [-15, -50], [40, -100], [-25, 135], [-80, 0], [0, 20]]) assert.ok(isLand(lat, lon), `${lat},${lon}`);
@@ -64,4 +65,15 @@ test("zoom keeps the point under the cursor and pick finds meetups", () => {
   for (let i = 0; i < 400; i++) scene.tick(1 / 60);
   const sydney = scene.project(-33.87, 151.21);
   assert.ok(Math.abs(sydney.x) < 1e-6 && Math.abs(sydney.y) < 1e-6 && scene.zoom === 4);
+});
+
+test("themes round-trip through the compact link encoding", () => {
+  assert.equal(Object.keys(THEMES).length >= 20, true);
+  for (const [name, theme] of Object.entries(THEMES)) {
+    assert.deepEqual(Object.keys(theme), [...THEME_KEYS], name);
+    assert.deepEqual(decodeTheme(encodeTheme(theme)), theme, name);
+  }
+  assert.equal(encodeTheme(THEMES.nord).length, THEME_KEYS.length * 6);
+  assert.deepEqual(decodeTheme("81a1c1"), { background: "#81a1c1" }, "older, shorter links still decode");
+  for (const bad of ["", "zzzzzz", "12345", "a".repeat(THEME_KEYS.length * 6 + 6), null]) assert.equal(decodeTheme(bad), null);
 });

@@ -9,6 +9,7 @@ export const DEFAULT_THEME = {
   dark_foreground: "#565f89",
   bright_foreground: "#c0caf5",
   accent: "#7aa2f7",
+  selection: "#292e42",
   muted: "#414868",
   red: "#f7768e",
   yellow: "#e0af68",
@@ -34,4 +35,20 @@ export function parseColorsToml(text) {
 
 export function resolveTheme(partial) {
   return { ...DEFAULT_THEME, ...(partial || {}) };
+}
+
+/** Palette keys in a fixed order. Shared theme links depend on it, so only
+ *  ever append. */
+export const THEME_KEYS = Object.freeze(Object.keys(DEFAULT_THEME));
+
+/** A theme as a compact hex string for URLs: 6 hex digits per key. */
+export function encodeTheme(theme) {
+  return THEME_KEYS.map((k) => resolveTheme(theme)[k].slice(1)).join("");
+}
+
+export function decodeTheme(text) {
+  if (typeof text !== "string" || !/^[0-9a-f]+$/i.test(text) || text.length % 6 || text.length > THEME_KEYS.length * 6) return null;
+  const theme = {};
+  for (let i = 0; i < text.length / 6; i++) theme[THEME_KEYS[i]] = `#${text.slice(i * 6, i * 6 + 6).toLowerCase()}`;
+  return theme;
 }

@@ -5,6 +5,7 @@
 import { CITIES, CITY_BY_ID, nearestCity } from "../core/cities.js";
 import { createScene } from "../core/scene.js";
 import { createMeetupsUi } from "./meetups.js";
+import { createThemePicker } from "./themes.js";
 
 const TARGET_ROWS = 270; // framebuffer height the pixel scale aims for
 const ID_KEY = "omaglobe.id";
@@ -16,6 +17,7 @@ const ctx = canvas.getContext("2d");
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scene = createScene({ autoRotate: !reducedMotion });
+createThemePicker({ select: $("theme"), scene, storage });
 
 // ------------------------------------------------------------------ render
 
