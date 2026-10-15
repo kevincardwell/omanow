@@ -33,7 +33,9 @@ Panel {
   property string error: ""
   property int failures: 0
   property bool helpOpen: false
-  property string syncId: "" // set once this session opened the page
+  // Set the first time this machine opens the map; browsers that opened it
+  // follow this widget's theme and city through the server's relay.
+  property string syncId: ""
 
   // The dropdown writes its own value on a pick, which breaks a binding, so
   // keep it in step by hand (locate changes the city too).
@@ -44,7 +46,7 @@ Panel {
   implicitHeight: button.implicitHeight
 
   function save() {
-    stateFile.setText(JSON.stringify({ id: installId, city: city, online: online }, null, 2) + "\n")
+    stateFile.setText(JSON.stringify({ id: installId, city: city, online: online, sync: syncId }, null, 2) + "\n")
   }
 
   function post(path, body, done, failed) {
@@ -72,6 +74,7 @@ Panel {
       omaglobe.failures = 0
       omaglobe.error = ""
       omaglobe.heat = data ? data.heat : null
+      omaglobe.syncPage()
       beat.restart()
     }, function (status, message) {
       // Too many changes in a minute: try again in one, quietly.
@@ -144,7 +147,10 @@ Panel {
   }
 
   function openMap() {
-    if (syncId === "") syncId = Model.newId()
+    if (syncId === "") {
+      syncId = Model.newId()
+      save()
+    }
     var link = Model.pageLink(server, { theme: Model.themeHex(themeFile.text()), city: online ? city : "", sync: syncId })
     Util.execArgv(["xdg-open", link])
   }
@@ -174,6 +180,7 @@ Panel {
       omaglobe.city = s.city
       omaglobe.online = s.online
       omaglobe.installId = s.id !== "" ? s.id : Model.newId()
+      omaglobe.syncId = s.sync
       omaglobe.loaded = true
       omaglobe.heartbeat()
     }

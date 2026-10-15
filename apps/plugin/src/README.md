@@ -6,7 +6,7 @@ it's online. Off until you switch it on.
 
 ```sh
 omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
-omarchy bar move io.github.mark-omarov.omaglobe --before omarchy.indicators
+omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators
 ```
 
 Like the indicators, it stays out of sight while off and shows when you hover

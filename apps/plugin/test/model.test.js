@@ -14,9 +14,11 @@ test("state is off unless it names a known city", () => {
     id: "0123456789abcdef0123",
     city: "berlin-de",
     online: true,
+    sync: "",
   });
   assert.equal(Model.parseState('{"city":"atlantis-xx","online":true}').online, false);
-  assert.deepEqual(Model.parseState(""), { id: "", city: "", online: false });
+  assert.deepEqual(Model.parseState(""), { id: "", city: "", online: false, sync: "" });
+  assert.equal(Model.parseState('{"sync":"abcdef0123456789abcd"}').sync, "abcdef0123456789abcd");
 });
 
 test("install ids are long and random", () => {

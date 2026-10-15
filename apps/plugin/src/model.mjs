@@ -77,9 +77,10 @@ export function parseState(text) {
       id: typeof s.id === "string" && /^[A-Za-z0-9-]{16,64}$/.test(s.id) ? s.id : "",
       city: CITY_BY_ID.has(s.city) ? s.city : "",
       online: s.online === true && CITY_BY_ID.has(s.city),
+      sync: typeof s.sync === "string" && /^[A-Za-z0-9-]{16,64}$/.test(s.sync) ? s.sync : "",
     };
   } catch (e) {
-    return { id: "", city: "", online: false };
+    return { id: "", city: "", online: false, sync: "" };
   }
 }
 
