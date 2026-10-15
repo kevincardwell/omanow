@@ -58,7 +58,8 @@ test("retries back off and cap at 30 minutes", () => {
 });
 
 test("summary and options", () => {
-  const heat = { total: 1234, online: 5, cities: [["berlin-de", 4]], min: 3 };
-  assert.match(Model.summary(heat), /on the map · 5 online · 1 cities/);
+  const heat = { total: 1234, cities: [["berlin-de", 4]], min: 3 };
+  assert.match(Model.summary(heat), /machines online · 1 city$/);
+  assert.equal(Model.summary({ total: 1, cities: [["berlin-de", 1]] }), "1 machine online · 1 city");
   assert.ok(Model.cityOptions().every((o) => o.value && o.label));
 });

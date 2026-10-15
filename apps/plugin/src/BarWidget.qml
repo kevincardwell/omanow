@@ -35,6 +35,10 @@ Panel {
   property bool helpOpen: false
   property string syncId: "" // set once this session opened the page
 
+  // The dropdown writes its own value on a pick, which breaks a binding, so
+  // keep it in step by hand (locate changes the city too).
+  onCityChanged: if (picker) picker.value = city
+
   visible: revealed
   implicitWidth: revealed ? button.implicitWidth : 0
   implicitHeight: button.implicitHeight
@@ -70,6 +74,12 @@ Panel {
       omaglobe.heat = data ? data.heat : null
       beat.restart()
     }, function (status, message) {
+      // Too many changes in a minute: try again in one, quietly.
+      if (status === 429) {
+        retry.interval = 60000
+        retry.restart()
+        return
+      }
       omaglobe.failures += 1
       omaglobe.error = status >= 400 && status < 500 ? (message || "HTTP " + status) : ""
       retry.interval = Model.retryDelay(omaglobe.failures)
@@ -81,6 +91,18 @@ Panel {
   function syncPage() {
     if (syncId !== "") post("/api/sync", { sync: syncId, me: online ? city : "" }, null, null)
   }
+
+  function refreshHeat() {
+    var xhr = new XMLHttpRequest()
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== XMLHttpRequest.DONE || xhr.status !== 200) return
+      try { omaglobe.heat = JSON.parse(xhr.responseText) } catch (e) {}
+    }
+    xhr.open("GET", omaglobe.server + "/api/heat")
+    xhr.send()
+  }
+
+  onOpenedChanged: if (opened) refreshHeat()
 
   function setOnline(on) {
     if (on && city === "") {
@@ -309,11 +331,30 @@ Panel {
         Text {
           visible: omaglobe.helpOpen
           width: parent.width
-          text: "While on, this machine's city and a random install id are sent once an hour. Nothing else, never your location. It drops off the map about an hour after it stops, or right away when you switch it off. A city shows on the map once 3 people are there.\n\nkeys: enter or s share · l locate · o open the map · ? help · esc close"
+          text: "While on, this machine's city and a random install id are sent once an hour. Nothing else, never your location. It drops off the map about an hour after it stops, or right away when you switch it off. A city shows on the map once 3 machines are there."
           color: omaglobe.dim
           font.family: omaglobe.fontFamily
           font.pixelSize: Style.font.caption
           wrapMode: Text.WordWrap
+        }
+
+        // Breaks between hints, never inside one.
+        Flow {
+          visible: omaglobe.helpOpen
+          width: parent.width
+          spacing: Style.space(12)
+
+          Repeater {
+            model: [["enter", "share"], ["l", "locate"], ["o", "open the map"], ["?", "help"], ["esc", "close"]]
+
+            Text {
+              required property var modelData
+              text: modelData[0] + " " + modelData[1]
+              color: omaglobe.dim
+              font.family: omaglobe.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
         }
 
         Text {
@@ -341,12 +382,13 @@ Panel {
           spacing: Style.space(8)
 
           SearchableDropdown {
+            id: picker
             width: parent.width - locateButton.width - parent.spacing
+            Component.onCompleted: value = omaglobe.city
             label: "city"
             fontFamily: omaglobe.fontFamily
             placeholderText: "search cities..."
             options: Model.cityOptions()
-            value: omaglobe.city
             triggerLabel: omaglobe.city !== "" ? Model.cityLabel(omaglobe.city) : "pick your city"
             onChanged: function (value) { omaglobe.pick(value) }
           }
