@@ -339,6 +339,16 @@ export function createScene(options = {}) {
     idle = 0;
   }
 
+  function setView(lat, lon, toZoom = zoom) {
+    yaw = lon * DEG;
+    pitch = clamp(lat * DEG, -MAX_PITCH, MAX_PITCH);
+    zoom = zoomTarget = clamp(toZoom, MIN_ZOOM, MAX_ZOOM);
+    radiusPx = R * zoom;
+    flight = null;
+    zoomAnchor = null;
+    velYaw = velPitch = 0;
+  }
+
   function nudge(dYawDeg, dPitchDeg) {
     velYaw += dYawDeg * DEG;
     velPitch += dPitchDeg * DEG;
@@ -868,6 +878,7 @@ export function createScene(options = {}) {
     nudge,
     zoomAt,
     flyTo,
+    setView,
     project,
     unproject,
     setAutoRotate: (on) => (autoRotate = on),

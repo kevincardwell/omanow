@@ -77,3 +77,13 @@ test("themes round-trip through the compact link encoding", () => {
   assert.deepEqual(decodeTheme("81a1c1"), { background: "#81a1c1" }, "older, shorter links still decode");
   for (const bad of ["", "zzzzzz", "12345", "a".repeat(THEME_KEYS.length * 6 + 6), null]) assert.equal(decodeTheme(bad), null);
 });
+
+test("setView places the camera at once", () => {
+  const scene = createScene({ autoRotate: false });
+  scene.resize(320, 200);
+  scene.setView(35.68, 139.69, 3);
+  scene.tick(1 / 60);
+  const tokyo = scene.project(35.68, 139.69);
+  assert.ok(Math.abs(tokyo.x) < 1e-9 && Math.abs(tokyo.y) < 1e-9);
+  assert.equal(scene.zoom, 3);
+});
