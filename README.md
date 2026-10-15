@@ -106,7 +106,8 @@ Repository secrets the workflow needs:
 | `PLUGIN_DEPLOY_KEY` | private half of a deploy key with write access on `omaglobe-plugin` |
 
 Also allow GitHub Actions to create pull requests (Settings → Actions →
-General).
+General), then set the repository variable `RELEASES_ENABLED` to `true`.
+Until then the release job is skipped and only tests run.
 
 ## Free plan budget
 
