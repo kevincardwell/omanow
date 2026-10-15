@@ -38,7 +38,10 @@ no object spread, no numeric separators, no `catch {}` without a binding.
 
 ```sh
 omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
+omarchy bar move io.github.mark-omarov.omaglobe --before omarchy.indicators
 ```
+
+Keys, IPC commands and an omarchy menu entry are in `apps/plugin/src/README.md`.
 
 `omarchy plugin add` clones a whole repo and needs `manifest.json` at its
 root, and `omarchy plugin update` fast-forwards to the default branch. So the
