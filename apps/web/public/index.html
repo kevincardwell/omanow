@@ -33,7 +33,7 @@
     <footer class="hud">
       <label class="theme">theme <select id="theme" aria-label="Theme"></select></label>
       <div class="stats" aria-live="polite">
-        <span class="dot"></span><span id="total">0</span> on the map · <span id="cities">0</span> cities · <span id="online">0</span> online
+        <span class="dot"></span><span id="total">0</span> <span id="total-label">omarchy machines</span> online · <span id="cities">0</span> <span id="cities-label">cities</span>
         <span class="hint">drag to spin · scroll to zoom</span>
       </div>
 
@@ -42,36 +42,9 @@
         <button class="link" id="plugin-open" type="button">omarchy plugin</button>
         <button class="link" id="about-open" type="button">about</button>
         <a class="link" href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github</a>
-        <button class="btn primary" id="share-open" type="button">[ share my city ]</button>
+        <button class="btn primary" id="share-open" type="button">[ put your machine on the map ]</button>
       </nav>
     </footer>
-
-    <dialog class="panel" id="panel">
-      <header class="hero">
-        <div>
-          <h2>share my city</h2>
-          <p class="meta" id="share-meta">off</p>
-        </div>
-        <div class="controls">
-          <button class="icon" id="share-help" type="button" aria-expanded="false" title="what gets shared">?</button>
-          <button class="switch" id="share-toggle" type="button" role="switch" aria-checked="false" aria-label="share my city"><span></span></button>
-        </div>
-      </header>
-      <p class="fine" id="share-help-text" hidden>
-        While on, the city you pick and a random id this browser makes are stored, nothing else and never your
-        location. A city shows on the map once 3 people are there, and the map updates once a minute so no one
-        can tell when you joined. Switch it off any time; it also expires 180 days after your last visit.
-      </p>
-      <p class="summary" id="share-summary"></p>
-      <label for="city-input">city</label>
-      <div class="row">
-        <input id="city-input" list="city-list" autocomplete="off" spellcheck="false" placeholder="pick your city" />
-        <button class="icon" id="locate" type="button" title="use my location">⌖</button>
-      </div>
-      <datalist id="city-list"></datalist>
-      <p class="error" id="share-error" role="alert"></p>
-      <div class="actions"><button class="link" data-close type="button">close ×</button></div>
-    </dialog>
 
     <dialog class="panel list" id="meetups-list">
       <header>
@@ -103,10 +76,9 @@
       <p>An opt-in map of omarchy users. A community project, not affiliated with omarchy, omacom or 37signals.</p>
       <h3>privacy</h3>
       <ul class="prose">
-        <li>Nothing is collected unless you choose to share. Sharing is off by default.</li>
-        <li>Sharing from this page stores a random ID your browser makes (only its hash) and the city you picked. It's kept until you press stop, or 180 days after your last visit.</li>
-        <li>The omarchy plugin sends a random install ID (stored hashed) and your city once an hour while it's on. It's dropped about an hour after the last one, or when you go offline.</li>
-        <li>No names, accounts, IP addresses, coordinates, cookies or analytics. A city shows only once 3 people are there, and the map updates once a minute so no one can tell when you joined.</li>
+        <li>The map shows omarchy machines running the omaglobe plugin with sharing switched on. It's off by default. Visiting this site shares nothing.</li>
+        <li>While on, the plugin sends a random install ID (stored hashed) and the city you picked once an hour. It's dropped about an hour after the last one, or right away when you switch it off.</li>
+        <li>No names, accounts, IP addresses, coordinates, cookies or analytics. A city shows only once 3 machines are there, and the map updates once a minute so no one can tell when you joined.</li>
         <li>Cloudflare hosts the site and sees connections, as any host does.</li>
       </ul>
       <h3>terms</h3>

@@ -2,14 +2,12 @@
 // and the opt-in UI. Everything visual lives in ../core so another host
 // (e.g. an Omarchy shell plugin) can drive the same scene.
 
-import { CITIES, CITY_BY_ID, nearestCity } from "../core/cities.js";
+import { CITY_BY_ID } from "../core/cities.js";
 import { createScene } from "../core/scene.js";
 import { createMeetupsUi } from "./meetups.js";
 import { createThemePicker } from "./themes.js";
 
 const TARGET_ROWS = 270; // framebuffer height the pixel scale aims for
-const ID_KEY = "omaglobe.id";
-const CITY_KEY = "omaglobe.city";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("globe");
@@ -204,10 +202,11 @@ function applyHeat(data) {
   scene.setHeat(data.cities);
   $("total").textContent = fmt.format(data.total);
   $("cities").textContent = fmt.format(data.cities.length);
-  $("online").textContent = fmt.format(data.online || 0);
+  $("total-label").textContent = data.total === 1 ? "omarchy machine" : "omarchy machines";
+  $("cities-label").textContent = data.cities.length === 1 ? "city" : "cities";
   // Joins arrive batched once a minute; spread them out so the globe feels live.
   if (!document.hidden) for (const city of data.joins || []) setTimeout(() => pulse(city), Math.random() * 20_000);
-  renderShare();
+  renderYou();
 }
 
 // Connections drop: retry with backoff from 1 s to 60 s, reset only once a
@@ -245,13 +244,12 @@ function connect() {
 connect();
 window.addEventListener("online", () => live.ws || connect());
 
-// Cities with omarchy machines online get a beacon now and then.
+// Cities with machines online get a beacon now and then.
 setInterval(() => {
-  const online = heat.onlineCities || [];
-  if (online.length) pulse(online[Math.floor(Math.random() * online.length)][0]);
+  if (heat.cities.length) pulse(heat.cities[Math.floor(Math.random() * heat.cities.length)][0]);
 }, 8000);
 
-// ------------------------------------------------------------------- share
+// ---------------------------------------------------------------- you, plugin
 
 function storage(key, value) {
   try {
@@ -263,17 +261,6 @@ function storage(key, value) {
   }
 }
 
-function clientId() {
-  let id = storage(ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    storage(ID_KEY, id);
-  }
-  return id;
-}
-
-const label = (c) => `${c.name}, ${c.country}`;
-const byLabel = new Map(CITIES.map((c) => [label(c).toLowerCase(), c]));
 let pluginCity = CITY_BY_ID.get(fromPlugin.city);
 
 // The plugin that opened this page switched theme, city or off.
@@ -284,121 +271,17 @@ function followPlugin({ theme, me }) {
   try {
     sessionStorage.setItem("omaglobe.plugin", JSON.stringify({ ...fromPlugin, theme: theme || fromPlugin.theme, city: me }));
   } catch {}
-  renderShare();
+  renderYou();
 }
 
-$("city-list").append(
-  ...[...CITIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => Object.assign(document.createElement("option"), { value: label(c) })),
-);
-
-const sharedCity = () => CITY_BY_ID.get(storage(CITY_KEY));
-
-// One place draws sharing state: the footer button, the panel and "you".
-function renderShare() {
-  const city = sharedCity();
-  const mine = city || pluginCity;
-  scene.setSelf(mine?.id);
+// Your own city, shown only to you, when the plugin opened this page.
+function renderYou() {
+  scene.setSelf(pluginCity?.id);
   const button = $("share-open");
-  button.textContent = city ? `[ sharing · ${city.name.toLowerCase()} ]` : pluginCity ? `[ on the map · ${pluginCity.name.toLowerCase()} ]` : "[ share my city ]";
-  button.classList.toggle("on", !!mine);
-
-  $("share-toggle").setAttribute("aria-checked", String(!!city));
-  const shown = city && heat.cities.some(([id]) => id === city.id);
-  $("share-meta").textContent = !city
-    ? pluginCity ? `off here · your omarchy bar shares ${pluginCity.name.toLowerCase()}` : "off"
-    : shown ? `sharing ${label(city).toLowerCase()}` : `sharing ${label(city).toLowerCase()} · hidden until 3 are here`;
-  $("share-summary").textContent = `${fmt.format(heat.total)} on the map · ${fmt.format(heat.online || 0)} online · ${fmt.format(heat.cities.length)} cities`;
+  button.textContent = pluginCity ? `[ you're on the map · ${pluginCity.name.toLowerCase()} ]` : "[ put your machine on the map ]";
+  button.classList.toggle("on", !!pluginCity);
 }
-
-async function post(path, body) {
-  const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
-  return data;
-}
-
-const error = (text) => ($("share-error").textContent = text);
-
-async function share(city) {
-  try {
-    await post("api/share", { id: clientId(), city: city.id });
-    storage(CITY_KEY, city.id);
-    $("city-input").value = label(city);
-    error("");
-    pulse(city.id);
-  } catch (err) {
-    error(err.message);
-  }
-  renderShare();
-}
-
-async function stop() {
-  try {
-    await post("api/unshare", { id: clientId() });
-    storage(CITY_KEY, null);
-    error("");
-  } catch (err) {
-    error(err.message);
-  }
-  renderShare();
-}
-
-// Snapped to a city right here; the coordinates go nowhere.
-function locate() {
-  if (!navigator.geolocation) return Promise.reject(new Error("location isn't available here, pick a city"));
-  error("locating…");
-  return new Promise((resolve, reject) =>
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(nearestCity(pos.coords.latitude, pos.coords.longitude)),
-      () => reject(new Error("couldn't get a location, pick a city")),
-      { maximumAge: 3600e3, timeout: 10e3 },
-    ),
-  ).finally(() => error(""));
-}
-
-$("share-open").addEventListener("click", () => {
-  const current = sharedCity() || pluginCity;
-  $("city-input").value = current ? label(current) : "";
-  error("");
-  renderShare();
-  $("panel").showModal();
-});
-$("panel").querySelector("[data-close]").addEventListener("click", () => $("panel").close());
-
-$("share-help").addEventListener("click", () => {
-  const help = $("share-help-text");
-  help.hidden = !help.hidden;
-  $("share-help").setAttribute("aria-expanded", String(!help.hidden));
-});
-
-$("share-toggle").addEventListener("click", async () => {
-  if (sharedCity()) return stop();
-  const typed = byLabel.get($("city-input").value.trim().toLowerCase());
-  try {
-    await share(typed || (await locate()));
-  } catch (err) {
-    error(err.message);
-  }
-});
-
-$("city-input").addEventListener("change", () => {
-  const city = byLabel.get($("city-input").value.trim().toLowerCase());
-  if (city && sharedCity() && city.id !== sharedCity().id) share(city);
-});
-
-$("locate").addEventListener("click", async () => {
-  try {
-    const city = await locate();
-    $("city-input").value = label(city);
-    if (sharedCity()) share(city);
-  } catch (err) {
-    error(err.message);
-  }
-});
-
-// Re-affirm a previous opt-in so the server and this browser agree.
-renderShare();
-if (sharedCity()) post("api/share", { id: clientId(), city: sharedCity().id }).catch(() => {});
+renderYou();
 
 // ----------------------------------------------------------- about, plugin
 
@@ -407,6 +290,7 @@ for (const name of ["about", "plugin"]) {
   $(`${name}-open`).addEventListener("click", () => dialog.showModal());
   dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
 }
+$("share-open").addEventListener("click", () => $("plugin").showModal());
 
 $("plugin-copy").addEventListener("click", async () => {
   try {
