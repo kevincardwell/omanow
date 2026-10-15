@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "description": "Opt-in, city-level pixel-art globe of Omarchy users",
+  "license": "MIT",
+  "repository": "github:mark-omarov/omaglobe",
   "engines": {
     "node": ">=22.13"
   },
