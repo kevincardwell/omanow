@@ -34,7 +34,7 @@ export function parseColorsToml(text) {
 }
 
 export function resolveTheme(partial) {
-  return { ...DEFAULT_THEME, ...(partial || {}) };
+  return Object.assign({}, DEFAULT_THEME, partial || {});
 }
 
 /** Palette keys in a fixed order. Shared theme links depend on it, so only
