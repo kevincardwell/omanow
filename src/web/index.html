@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Omaglobe</title>
+    <meta name="description" content="An opt-in, city-level pixel globe of Omarchy users." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="web/style.css" />
+  </head>
+  <body>
+    <main class="stage" id="stage">
+      <canvas id="globe" aria-label="Pixel globe of people sharing their city and Omarchy meetups. Drag or use arrow keys to rotate, scroll or +/- to zoom." tabindex="0"></canvas>
+    </main>
+
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button class="btn" id="zoom-in" type="button" aria-label="Zoom in">[+]</button>
+      <button class="btn" id="zoom-out" type="button" aria-label="Zoom out">[-]</button>
+    </div>
+
+    <div class="tip" id="tip" hidden></div>
+
+    <aside class="card" id="meetup-card" aria-label="Meetup details" hidden>
+      <button class="link close" id="meetup-card-close" type="button" aria-label="Close">close ×</button>
+      <div id="meetup-card-body"></div>
+    </aside>
+
+    <footer class="hud">
+      <div class="stats" aria-live="polite">
+        <span class="dot"></span><span id="total">0</span> on the map · <span id="cities">0</span> cities
+        <span class="hint">drag to spin · scroll to zoom</span>
+      </div>
+
+      <div class="share" id="share">
+        <button class="btn meetups-btn" id="meetups-open" type="button" hidden>[ meetups ]</button>
+        <button class="btn" id="share-open" type="button">[ share my city ]</button>
+
+        <div class="sharing" id="sharing" hidden>
+          <span class="dot live"></span><span>sharing as <b id="sharing-city"></b></span>
+          <button class="link" id="share-change" type="button">change</button>
+          <button class="link" id="share-stop" type="button">stop</button>
+        </div>
+      </div>
+    </footer>
+
+    <dialog class="panel" id="panel">
+      <form method="dialog" id="share-form">
+        <h2>&gt; put your city on the globe</h2>
+        <p class="fine">
+          Only the city you pick is stored — never coordinates. Stop sharing any time.
+        </p>
+        <label for="city-input">city</label>
+        <input id="city-input" list="city-list" autocomplete="off" spellcheck="false" placeholder="type to search…" required />
+        <datalist id="city-list"></datalist>
+        <button class="link" id="locate" type="button">use my location → nearest city (stays in your browser)</button>
+        <p class="error" id="share-error" role="alert"></p>
+        <div class="actions">
+          <button class="btn" value="cancel" formnovalidate type="submit">[ cancel ]</button>
+          <button class="btn primary" id="share-submit" value="share" type="submit">[ share ]</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="panel list" id="meetups-list">
+      <header>
+        <h2>&gt; omarchy meetups</h2>
+        <button class="link" id="meetups-close" type="button">close ×</button>
+      </header>
+      <p class="fine">From the <a href="https://luma.com/omarchy" target="_blank" rel="noopener noreferrer">Omarchy calendar on Luma</a>, as listed on omarchy.org/meetups. Pick one to fly there.</p>
+      <div id="meetups-body"></div>
+    </dialog>
+
+    <script type="module" src="web/app.js"></script>
+  </body>
+</html>

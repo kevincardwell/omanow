@@ -1,0 +1,17 @@
+{
+  "name": "omaglobe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Opt-in, city-level pixel-art globe of Omarchy users",
+  "scripts": {
+    "start": "node server/server.js",
+    "demo": "node server/server.js --demo",
+    "build:land": "node scripts/build-land.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  }
+}
