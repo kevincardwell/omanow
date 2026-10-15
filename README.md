@@ -1,136 +1,121 @@
 # omaglobe
 
-A pixel-art globe of Omarchy users. People can opt in to share their **city**
-(never coordinates). Cities glow as a heatmap with light beacons, and particles
-stream from the hot spots into the `OMAGLOBE` wordmark, lighting it up.
-Omarchy meetups from [omarchy.org/meetups](https://omarchy.org/meetups) show as
-green pins; click one for its details.
+A pixel-art globe of Omarchy users. People opt in to put their **city** on the
+map (never coordinates), from the website or from a globe in their Omarchy
+bar. Cities glow as a heatmap, particles stream from the hot spots into the
+`OMAGLOBE` wordmark, and Omarchy meetups from
+[omarchy.org/meetups](https://omarchy.org/meetups) show as green pins.
 
-It runs on Cloudflare Workers (free plan): static files from Workers Static
+It runs on the Cloudflare Workers free plan: static files from Workers Static
 Assets, the API in a Worker, and opt-ins in one Durable Object with SQLite.
 
 ```sh
-npm install
-npm run demo   # synthetic crowd, updates every 3 s → http://localhost:8787
-npm run dev    # real data only (starts empty), stored under .wrangler/
-npm test
+pnpm install
+pnpm demo            # synthetic crowd, updates every 3 s → http://localhost:8787
+pnpm dev             # real data only, stored under apps/web/.wrangler/state
+pnpm reset           # wipe that local data
+pnpm test
+pnpm plugin:install  # build the bar widget and load it into your Omarchy shell
 ```
 
-Node ≥ 22.13 for the tests (they use `node:sqlite`).
+Node ≥ 22.13 and pnpm (the `packageManager` field pins the version).
 
-## Seeing it work
+## Layout
 
-1. `npm run demo`, then open http://localhost:8787. About 1.9k fake people
-   across ~120 visible cities. New joins arrive in batches and show as
-   shockwave rings on the globe plus bursts of particles into the logo.
-2. Drag to spin (it has inertia), or use the arrow keys. After a moment of no
-   input it goes back to spinning on its own.
-3. Zoom with the scroll wheel (toward the cursor), pinch, double-click, `+`/`-`,
-   or the `[+]`/`[-]` buttons. `0` resets. City labels appear once you zoom in,
-   busiest cities first; from about 2.6× they include cities nobody shares
-   from yet. Meetup cities are labelled in green.
-4. Pins: green = upcoming meetup, dim cross = already happened. Hover a pin to
-   see its name, click it for the card (date in the event's timezone, place,
-   cover, link to the event). **[ meetups · N upcoming ]** lists them all;
-   picking one flies the globe there.
-5. Click **[ share my city ]** and pick a city (or "use my location", which
-   snaps to the nearest city inside the browser). Your city pulses right away;
-   everyone else sees it at the next publish, once 3 people share it.
-   **stop** removes it.
+```
+packages/core   host-agnostic engine: scene, city catalogue, land mask, themes
+apps/web        the site (public/) and the Cloudflare Worker (worker/)
+apps/plugin     the Omarchy bar widget (QML), built into dist/
+```
+
+`packages/core` has no DOM, timers or `atob`, so the browser and the QML
+plugin share it. The web build copies it to `public/core/`; the plugin build
+copies `cities.js` and `theme.js` as `.mjs`, which is how QML imports ES
+modules. Code in core must stay within what QML's JavaScript engine parses:
+no object spread, no numeric separators, no `catch {}` without a binding.
+
+## The Omarchy plugin
+
+```sh
+omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
+```
+
+`omarchy plugin add` clones a whole repo and needs `manifest.json` at its
+root, and `omarchy plugin update` fast-forwards to the default branch. So the
+plugin ships from its own repo,
+[omaglobe-plugin](https://github.com/mark-omarov/omaglobe-plugin), which
+receives `apps/plugin/dist` only on a release. Users get released versions
+and a review diff with only plugin code in it.
+
+To try a change locally:
+
+```sh
+pnpm demo                                              # in one terminal
+omarchy bar set io.github.mark-omarov.omaglobe server http://localhost:8787
+pnpm plugin:install                                    # after each change
+```
+
+The shell hot-reloads the widget, but it caches ES modules for the life of
+the process: after changing `model.mjs` or core, run `omarchy restart shell`.
 
 ## Privacy
 
 The goal is that no one can be identified from what omaglobe stores or shows.
 
-- Only a city id from `src/core/cities.js` is accepted. Anything else is
-  rejected, and extra fields are ignored. Geolocation, if used, is snapped to
-  the nearest city in the browser and the coordinates are never sent.
-- The browser keeps a random token in localStorage. The server stores only
-  its SHA-256, the city id and the day it was last seen. No IPs, user agents
-  or timestamps finer than a day.
-- A city appears publicly only once **3** people share it (`MIN_PEOPLE`).
-- The public map changes only when it is published, at most once a minute,
-  with every join in that window merged. There is no per-person event, so a
-  change on the map can't be pinned to the moment someone shared.
-- Opt-ins expire after **180 days** without a visit (`RETENTION_DAYS`). Each
-  visit from a sharing browser renews it.
-- Rate limiting keeps per-IP counters in memory for the current minute only.
-- Workers Logs are off, so omaglobe keeps no request logs. Cloudflare still
-  terminates the connection and sees IPs, as any host would.
+- Sharing is off by default, on the site and in the plugin.
+- Only a city id from `packages/core/src/cities.js` is accepted. Geolocation
+  and the weather widget's location are snapped to a city on the device and
+  never sent.
+- The site stores the SHA-256 of a random browser token, the city and the
+  day it was last seen, for 180 days after the last visit or until **stop**.
+- The plugin sends a random install id and the city once an hour while on.
+  The server keeps the id's hash, the city and the minute of the last
+  heartbeat, and drops it 65 minutes later or on **Go offline**.
+- No IPs, accounts, cookies or analytics. Rate limiting counts per IP in
+  memory, for the current minute only. Workers Logs are off.
+- A city appears publicly only once **3** people are there (`MIN_PEOPLE`), for
+  the heatmap and for the online count separately.
+- The map is published at most once a minute with every change in that window
+  merged, so a change can't be pinned to the moment someone joined.
 - The page loads nothing from third parties except meetup covers from
-  omarchy.org, sent with `no-referrer`. Fonts are self-hosted.
+  omarchy.org (`no-referrer`). Fonts are self-hosted. A theme passed by the
+  plugin travels in the URL fragment, which browsers never send.
 
-Someone who watches a person share and then sees a small city gain one in the
-next publish can still guess. That needs both the out-of-band observation and
-a quiet minute. Raising `MIN_PEOPLE` or the publish interval makes it harder.
+Someone who watches a person join and then sees a small city gain one in the
+next quiet minute can still guess. Raising `MIN_PEOPLE` or the publish
+interval makes that harder.
 
-## Deploy
+## Releases
 
-On a Cloudflare account (the free plan is enough):
+[Changesets](https://github.com/changesets/changesets) versions
+`@omaglobe/web` and `@omaglobe/plugin`. Add one with `pnpm changeset` in any
+PR that changes behavior. On `main`, the release workflow keeps a
+"chore: release" PR open with the pending bumps; merging it tags each bumped
+package, creates GitHub releases, deploys the site if `@omaglobe/web` moved,
+and pushes the plugin repo if `@omaglobe/plugin` moved. A core change bumps
+both.
 
-```sh
-npx wrangler login
-npm run deploy
-```
+Repository secrets the workflow needs:
 
-That creates the Worker, the Durable Object and its SQLite storage, and prints
-a `*.workers.dev` URL. Add a custom domain under the Worker's settings if you
-want one.
+| Secret | What |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | API token with the "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | the account the Worker lives in |
+| `PLUGIN_DEPLOY_KEY` | private half of a deploy key with write access on `omaglobe-plugin` |
 
-Free plan budget: 100k Worker requests/day (static files don't count), and
-100k Durable Object requests, 5M SQLite rows read, 100k rows written per day.
-A share writes a few rows, and idle viewers on WebSockets cost no duration
-because the object hibernates between publishes. Over a limit, requests fail until 00:00 UTC.
+Also allow GitHub Actions to create pull requests (Settings → Actions →
+General).
 
-## Layout
+## Free plan budget
 
-```
-src/            served as static assets
-  index.html
-  _headers      CSP and other response headers
-  core/         host-agnostic engine: no DOM, no timers, no atob
-    scene.js      renders everything into an RGBA framebuffer
-    cities.js     the city catalogue (the only locations that can be shared)
-    land*.js      1440×720 land bitmask (generated: npm run build:land)
-    font.js       block glyphs for the wordmark
-    theme.js      Omarchy colors.toml keys + parser
-  web/          browser host: canvas blit, pointer/keys, WebSocket, opt-in UI
-  fonts/        JetBrains Mono (OFL)
-worker/
-  index.js      routes /api/*, checks writes are same-origin JSON
-  globe.js      Durable Object: opt-ins, publishing, live sockets
-  meetups.js    omarchy.org meetup listing, cached 10 min
-```
-
-API: `GET /api/heat` (the last published map), `GET /api/live` (WebSocket;
-sends `{type: "heat", total, cities, min, joins}` on connect and at each
-publish, answers `ping` with `pong`), `POST /api/share` `{id, city}`,
-`POST /api/unshare` `{id}`, `GET /api/meetups`.
-
-### Plugin readiness
-
-The future Omarchy shell (Quickshell/QML) plugin can reuse `src/core` as it is:
-
-- `createScene()` → `resize(w, h)`, `tick(dt)` returns RGBA pixels. Also
-  `setHeat`, `pulse`, `rotateBy`, `nudge`, `setDragging`, `zoomAt`, `flyTo`,
-  `setMarkers`, `pick`, `setHighlight` and `setTheme`. Labels and pins are
-  drawn into the framebuffer too, using a built-in 3×5 pixel font.
-- The host owns the clock, input and blitting (QML `Canvas` +
-  `putImageData`), and gets data from `/api/heat` and `/api/live`.
-- Theme keys match `colors.toml`, so the local Omarchy theme can be passed
-  straight to `setTheme`. The website uses Tokyo Night.
-
-## Meetup data
-
-`worker/meetups.js` reads the listing omarchy.org/meetups is built from
-(`src/data/meetups.json` in
-[omacom/omarchy-site](https://github.com/omacom/omarchy-site), refreshed daily
-from the Omarchy Luma calendar) and keeps the fields the globe needs. If a
-refresh fails it keeps serving the last data and waits 10 minutes before
-trying again. Events whose address is shared only with guests are placed
-approximately by that listing, and the card says so. An event it couldn't
-place is shown at its timezone's city, and the card says that too.
+100k Worker requests/day (static files don't count), and per Durable Object
+100k requests, 5M SQLite rows read and 100k rows written per day. A web share
+writes a few rows; a plugin heartbeat is one request and one row an hour, so
+about 4,000 always-on plugins fit. Over a limit, requests fail until 00:00
+UTC.
 
 ## License
 
-MIT. JetBrains Mono is under the SIL Open Font License (`src/fonts/OFL.txt`).
+MIT, see `LICENSE`. JetBrains Mono is under the SIL Open Font License
+(`apps/web/public/fonts/OFL.txt`). Stock theme colors come from
+[omacom/omarchy](https://github.com/omacom/omarchy) (MIT).
