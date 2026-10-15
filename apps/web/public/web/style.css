@@ -77,7 +77,7 @@ canvas.dragging { cursor: grabbing; }
 }
 .hud > * { pointer-events: auto; }
 
-.stats b, #total, #cities { color: var(--fg-bright); font-weight: 700; }
+.stats b, #total, #cities, #online { color: var(--fg-bright); font-weight: 700; }
 .hint { color: var(--fg-dim); margin-left: 12px; }
 
 .dot {

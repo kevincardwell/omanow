@@ -185,6 +185,7 @@ function applyHeat(data) {
   scene.setHeat(data.cities);
   $("total").textContent = fmt.format(data.total);
   $("cities").textContent = fmt.format(data.cities.length);
+  $("online").textContent = fmt.format(data.online || 0);
   // Joins arrive batched once a minute; spread them out so the globe feels live.
   for (const city of data.joins || []) setTimeout(() => scene.pulse(city), Math.random() * 20_000);
   showSharing(storage(CITY_KEY));
@@ -211,6 +212,12 @@ function connect(attempt = 0) {
   });
 }
 connect();
+
+// Cities with Omarchy machines online get a beacon now and then.
+setInterval(() => {
+  const online = heat.onlineCities || [];
+  if (online.length && !document.hidden) scene.pulse(online[Math.floor(Math.random() * online.length)][0]);
+}, 8000);
 
 // ------------------------------------------------------------------- share
 
