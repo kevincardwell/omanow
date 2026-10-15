@@ -15,9 +15,9 @@
     "demo": "pnpm --filter @omaglobe/web demo",
     "reset": "pnpm --filter @omaglobe/web reset",
     "changeset": "changeset",
-    "version": "changeset version",
-    "release": "changeset publish",
-    "plugin:install": "pnpm --filter @omaglobe/plugin install-local"
+    "plugin:install": "pnpm --filter @omaglobe/plugin install-local",
+    "changeset:version": "changeset version && pnpm install --lockfile-only",
+    "changeset:publish": "changeset publish"
   },
   "devDependencies": {
     "@changesets/changelog-github": "1.0.1",

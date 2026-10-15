@@ -1,0 +1,49 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+concurrency: release
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+      # Opens or updates the "chore: release" PR while changesets are pending;
+      # once it merges, tags each bumped package and reports it here.
+      - id: changesets
+        uses: changesets/action@v2.1.2
+        with:
+          version-script: pnpm run changeset:version
+          publish-script: pnpm run changeset:publish
+          commit-message: "chore: release"
+          pr-title: "chore: release"
+
+      - name: Deploy the site
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omaglobe/web"')
+        run: pnpm --filter @omaglobe/web run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Publish the plugin repo
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omaglobe/plugin"')
+        run: pnpm --filter @omaglobe/plugin run publish-dist
+        env:
+          PLUGIN_DEPLOY_KEY: ${{ secrets.PLUGIN_DEPLOY_KEY }}
