@@ -11,10 +11,11 @@
   },
   "scripts": {
     "dev": "wrangler dev",
-    "demo": "wrangler dev --var DEMO:1 --var PUBLISH_SECONDS:3",
+    "demo": "wrangler dev --persist-to .wrangler/demo --var DEMO:1 --var PUBLISH_SECONDS:3",
     "deploy": "wrangler deploy",
     "build:land": "node scripts/build-land.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "reset": "node -e \"require('node:fs').rmSync('.wrangler/state', { recursive: true, force: true })\""
   },
   "devDependencies": {
     "topojson-client": "^3.1.0",
