@@ -39,7 +39,7 @@ no object spread, no numeric separators, no `catch {}` without a binding.
 
 ```sh
 omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
-omarchy bar move io.github.mark-omarov.omaglobe --before omarchy.indicators
+omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators
 ```
 
 Keys, IPC commands and an omarchy menu entry are in `apps/plugin/src/README.md`.
