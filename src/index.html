@@ -38,7 +38,7 @@
         <button class="btn" id="share-open" type="button">[ share my city ]</button>
 
         <div class="sharing" id="sharing" hidden>
-          <span class="dot live"></span><span>sharing as <b id="sharing-city"></b></span>
+          <span class="dot live"></span><span>sharing as <b id="sharing-city"></b> <span class="note" id="sharing-note"></span></span>
           <button class="link" id="share-change" type="button">change</button>
           <button class="link" id="share-stop" type="button">stop</button>
         </div>
@@ -49,7 +49,9 @@
       <form method="dialog" id="share-form">
         <h2>&gt; put your city on the globe</h2>
         <p class="fine">
-          Only the city you pick is stored — never coordinates. Stop sharing any time.
+          Only the city you pick is stored, never coordinates. A city shows on the map once
+          3 people share it, and the map updates once a minute so no one can tell when you joined.
+          Stop sharing any time.
         </p>
         <label for="city-input">city</label>
         <input id="city-input" list="city-list" autocomplete="off" spellcheck="false" placeholder="type to search…" required />

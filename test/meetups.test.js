@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createMeetupsSource, normalizeMeetups } from "../server/meetups.js";
+import { createMeetupsSource, normalizeMeetups } from "../worker/meetups.js";
 
 // Shape of omacom/omarchy-site src/data/meetups.json.
 const event = (over = {}) => ({

@@ -93,6 +93,7 @@ canvas.dragging { cursor: grabbing; }
 .link:hover, .link:focus-visible { color: var(--fg-bright); outline: none; }
 
 .sharing b { color: var(--fg-bright); }
+.sharing .note { color: var(--fg-dim); }
 
 .panel {
   width: min(440px, calc(100vw - 32px));

@@ -175,43 +175,42 @@ async function loadMeetups() {
 loadMeetups();
 setInterval(loadMeetups, 10 * 60 * 1000);
 
-// ------------------------------------------------------------------- theme
-
-const CSS_VARS = {
-  "--bg": "darker_background",
-  "--fg": "foreground",
-  "--fg-dim": "dark_foreground",
-  "--fg-bright": "bright_foreground",
-  "--accent": "accent",
-  "--hot": "yellow",
-  "--live": "green",
-  "--panel": "dark_background",
-  "--line": "selection",
-  "--error": "red",
-};
-
-fetch("api/theme")
-  .then((r) => (r.ok ? r.json() : {}))
-  .then((theme) => {
-    if (!theme || !Object.keys(theme).length) return;
-    scene.setTheme(theme);
-    for (const [v, key] of Object.entries(CSS_VARS)) if (theme[key]) document.documentElement.style.setProperty(v, theme[key]);
-  })
-  .catch(() => {});
-
 // ------------------------------------------------------------------ stream
 
 const fmt = new Intl.NumberFormat();
+let heat = { total: 0, cities: [], min: 3 };
 
 function applyHeat(data) {
+  heat = data;
   scene.setHeat(data.cities);
   $("total").textContent = fmt.format(data.total);
   $("cities").textContent = fmt.format(data.cities.length);
+  // Joins arrive batched once a minute; spread them out so the globe feels live.
+  for (const city of data.joins || []) setTimeout(() => scene.pulse(city), Math.random() * 20_000);
+  showSharing(storage(CITY_KEY));
 }
 
-const events = new EventSource("api/events");
-events.addEventListener("heat", (e) => applyHeat(JSON.parse(e.data)));
-events.addEventListener("join", (e) => scene.pulse(JSON.parse(e.data).city));
+// Pings are answered by the edge without waking the server; they keep idle
+// proxies from dropping the socket.
+function connect(attempt = 0) {
+  const ws = new WebSocket(new URL("api/live", location.href.replace(/^http/, "ws")));
+  let ping = 0;
+  ws.addEventListener("open", () => {
+    attempt = 0;
+    ping = setInterval(() => ws.send("ping"), 50_000);
+  });
+  ws.addEventListener("message", (e) => {
+    if (e.data === "pong") return;
+    const msg = JSON.parse(e.data);
+    if (msg.type === "heat") applyHeat(msg);
+  });
+  ws.addEventListener("close", () => {
+    clearInterval(ping);
+    const delay = Math.min(60_000, 1000 * 2 ** attempt) * (0.5 + Math.random());
+    setTimeout(() => connect(attempt + 1), delay);
+  });
+}
+connect();
 
 // ------------------------------------------------------------------- share
 
@@ -245,7 +244,10 @@ function showSharing(cityId) {
   const city = cityId && CITY_BY_ID.get(cityId);
   $("share-open").hidden = !!city;
   $("sharing").hidden = !city;
-  if (city) $("sharing-city").textContent = label(city);
+  if (!city) return;
+  $("sharing-city").textContent = label(city);
+  const shown = heat.cities.some(([id]) => id === city.id);
+  $("sharing-note").textContent = shown ? "" : `· shows once ${heat.min}+ people share it`;
 }
 
 async function post(path, body) {
@@ -279,7 +281,7 @@ $("share-stop").addEventListener("click", async () => {
 $("locate").addEventListener("click", () => {
   const err = $("share-error");
   if (!navigator.geolocation) {
-    err.textContent = "geolocation isn't available here — pick a city instead";
+    err.textContent = "geolocation isn't available here, pick a city instead";
     return;
   }
   err.textContent = "locating…";
@@ -290,7 +292,7 @@ $("locate").addEventListener("click", () => {
       $("city-input").value = label(city);
       err.textContent = "";
     },
-    () => (err.textContent = "couldn't get a location — pick a city instead"),
+    () => (err.textContent = "couldn't get a location, pick a city instead"),
     { maximumAge: 3600e3, timeout: 10e3 },
   );
 });
@@ -307,6 +309,7 @@ $("share-form").addEventListener("submit", async (e) => {
     await post("api/share", { id: clientId(), city: city.id });
     storage(CITY_KEY, city.id);
     showSharing(city.id);
+    scene.pulse(city.id);
     $("panel").close();
   } catch (err) {
     $("share-error").textContent = err.message;
