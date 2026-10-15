@@ -1,0 +1,16 @@
+{
+  "name": "@omaglobe/plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "omaglobe bar widget for the Omarchy shell",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "install-local": "node scripts/build.mjs && node scripts/install-local.mjs"
+  },
+  "dependencies": {
+    "@omaglobe/core": "workspace:*"
+  }
+}
