@@ -20,6 +20,7 @@ const HEAT_W = 360;
 const HEAT_H = 180;
 const MAX_PARTICLES = 400;
 const MAX_BEACONS = 28;
+const MAX_RINGS = 24;
 const MAX_STREAM_RATE = 30; // particles per second, whole globe
 const MAX_PITCH = 75 * DEG;
 const MIN_ZOOM = 1;
@@ -84,6 +85,8 @@ function buildPalette(theme) {
     meetupRing: pack(mix(t.green, space, 0.35)),
     meetupPast: pack(mix(t.dark_foreground, space, 0.15)),
     focus: pack(t.yellow),
+    self: pack(t.bright_foreground),
+    selfShadow: pack(mix(space, [0, 0, 0], 0.6)),
     logoBase: [mix(t.dark_foreground, t.muted, 0.4), t.foreground, t.bright_foreground],
     logoHot: heat,
   };
@@ -146,6 +149,7 @@ export function createScene(options = {}) {
   let particles = [];
   let embers = [];
   let rings = [];
+  let self = null; // the viewer's own city, drawn only for them
   let time = 0;
 
   // meetups & labels
@@ -262,7 +266,7 @@ export function createScene(options = {}) {
   // Someone just opted in: shockwave on the globe and a burst into the logo.
   function pulse(cityId) {
     const city = CITY_BY_ID.get(cityId);
-    if (!city) return;
+    if (!city || rings.length >= MAX_RINGS) return;
     rings.push({ city, age: 0 });
     const p = project(city.lat, city.lon);
     if (p.z > 0.05 && onScreen(p)) for (let i = 0; i < 14; i++) spawnParticle(p.sx, p.sy, 1, i * 0.035);
@@ -279,6 +283,11 @@ export function createScene(options = {}) {
         const same = km < 20;
         return { id: m.id, lat: m.lat, lon: m.lon, upcoming: !!m.upcoming, label: foldLabel(m.label || ""), cityId: same ? near.id : null, phase: random() * TAU };
       });
+  }
+
+  // Marks the viewer's own city, whether or not it is on the public map yet.
+  function setSelf(cityId) {
+    self = CITY_BY_ID.get(cityId) || null;
   }
 
   function setHighlight({ hover, select } = {}) {
@@ -760,6 +769,26 @@ export function createScene(options = {}) {
     }
   }
 
+  function renderSelf() {
+    if (!self) return;
+    const p = project(self.lat, self.lon);
+    if (p.z < 0.08 || !onScreen(p)) return;
+    const x = Math.round(p.sx);
+    const y = Math.round(p.sy);
+    const r = Math.sin(time * 3) > 0 ? 3 : 4;
+    // Corner brackets with a drop shadow, so it reads on land, sea and heat.
+    for (const [ox, oy, c] of [[1, 1, palette.selfShadow], [0, 0, palette.self]]) {
+      for (let i = -r; i <= r; i++) {
+        if (Math.abs(i) < r - 1) continue;
+        for (const [dx, dy] of [[i, -r], [i, r], [-r, i], [r, i]]) put(x + dx + ox, y + dy + oy, c);
+      }
+      put(x + ox, y + oy, c);
+    }
+    const lx = x + r + 3;
+    drawMicro("you", lx, y - 2, (px, py) => put(px + 1, py + 1, palette.selfShadow));
+    drawMicro("you", lx, y - 2, (px, py) => put(px, py, palette.self));
+  }
+
   function drawBrackets(x, y, r) {
     for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       put(x + sx * r, y + sy * r, palette.focus);
@@ -839,6 +868,7 @@ export function createScene(options = {}) {
     renderBeacons();
     renderMarkers();
     renderLabels();
+    renderSelf();
     renderParticles();
     renderLogo();
     return pixels;
@@ -859,6 +889,7 @@ export function createScene(options = {}) {
     tick,
     setHeat,
     setTheme,
+    setSelf,
     pulse,
     setMarkers,
     setHighlight,
