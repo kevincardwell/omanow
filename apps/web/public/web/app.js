@@ -17,7 +17,21 @@ const ctx = canvas.getContext("2d");
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scene = createScene({ autoRotate: !reducedMotion });
-createThemePicker({ select: $("theme"), scene, storage });
+
+// The plugin opens this page with its theme, its city and a sync channel in
+// the fragment, which never reaches the server. Kept for this tab only.
+const fromPlugin = (() => {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+  const fresh = { theme: params.get("theme"), city: params.get("me"), sync: params.get("sync") };
+  try {
+    if (fresh.theme || fresh.city || fresh.sync) sessionStorage.setItem("omaglobe.plugin", JSON.stringify(fresh));
+    return JSON.parse(sessionStorage.getItem("omaglobe.plugin")) || {};
+  } catch {
+    return fresh;
+  }
+})();
+const themes = createThemePicker({ select: $("theme"), scene, storage, linked: fromPlugin.theme });
 
 // ------------------------------------------------------------------ render
 
@@ -182,6 +196,9 @@ setInterval(loadMeetups, 10 * 60 * 1000);
 const fmt = new Intl.NumberFormat();
 let heat = { total: 0, cities: [], min: 3 };
 
+// Pulses queued in a background tab would all fire on return; skip them.
+const pulse = (city) => document.hidden || scene.pulse(city);
+
 function applyHeat(data) {
   heat = data;
   scene.setHeat(data.cities);
@@ -189,36 +206,49 @@ function applyHeat(data) {
   $("cities").textContent = fmt.format(data.cities.length);
   $("online").textContent = fmt.format(data.online || 0);
   // Joins arrive batched once a minute; spread them out so the globe feels live.
-  for (const city of data.joins || []) setTimeout(() => scene.pulse(city), Math.random() * 20_000);
-  showSharing(storage(CITY_KEY));
+  if (!document.hidden) for (const city of data.joins || []) setTimeout(() => pulse(city), Math.random() * 20_000);
+  renderShare();
 }
 
-// Pings are answered by the edge without waking the server; they keep idle
-// proxies from dropping the socket.
-function connect(attempt = 0) {
-  const ws = new WebSocket(new URL("api/live", location.href.replace(/^http/, "ws")));
+// Connections drop: retry with backoff from 1 s to 60 s, reset only once a
+// connection has held for a while, and retry at once when the browser is
+// back online. Pings are answered by the edge without waking the server.
+const live = { ws: null, attempt: 0, timer: 0 };
+
+function connect() {
+  clearTimeout(live.timer);
+  const url = new URL("api/live", location.href.replace(/^http/, "ws"));
+  if (fromPlugin.sync) url.searchParams.set("sync", fromPlugin.sync);
+  const ws = new WebSocket(url);
+  live.ws = ws;
   let ping = 0;
+  let steady = 0;
   ws.addEventListener("open", () => {
-    attempt = 0;
     ping = setInterval(() => ws.send("ping"), 50_000);
+    steady = setTimeout(() => (live.attempt = 0), 30_000);
   });
   ws.addEventListener("message", (e) => {
     if (e.data === "pong") return;
     const msg = JSON.parse(e.data);
     if (msg.type === "heat") applyHeat(msg);
+    if (msg.type === "sync") followPlugin(msg);
   });
   ws.addEventListener("close", () => {
     clearInterval(ping);
-    const delay = Math.min(60_000, 1000 * 2 ** attempt) * (0.5 + Math.random());
-    setTimeout(() => connect(attempt + 1), delay);
+    clearTimeout(steady);
+    if (live.ws !== ws) return;
+    live.ws = null;
+    const delay = Math.min(60_000, 1000 * 2 ** live.attempt++) * (0.5 + Math.random());
+    live.timer = setTimeout(connect, delay);
   });
 }
 connect();
+window.addEventListener("online", () => live.ws || connect());
 
-// Cities with Omarchy machines online get a beacon now and then.
+// Cities with omarchy machines online get a beacon now and then.
 setInterval(() => {
   const online = heat.onlineCities || [];
-  if (online.length && !document.hidden) scene.pulse(online[Math.floor(Math.random() * online.length)][0]);
+  if (online.length) pulse(online[Math.floor(Math.random() * online.length)][0]);
 }, 8000);
 
 // ------------------------------------------------------------------- share
@@ -244,19 +274,40 @@ function clientId() {
 
 const label = (c) => `${c.name}, ${c.country}`;
 const byLabel = new Map(CITIES.map((c) => [label(c).toLowerCase(), c]));
+let pluginCity = CITY_BY_ID.get(fromPlugin.city);
+
+// The plugin that opened this page switched theme, city or off.
+function followPlugin({ theme, me }) {
+  if (theme) themes.follow(theme);
+  if (me === undefined) return;
+  pluginCity = CITY_BY_ID.get(me);
+  try {
+    sessionStorage.setItem("omaglobe.plugin", JSON.stringify({ ...fromPlugin, theme: theme || fromPlugin.theme, city: me }));
+  } catch {}
+  renderShare();
+}
 
 $("city-list").append(
   ...[...CITIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => Object.assign(document.createElement("option"), { value: label(c) })),
 );
 
-function showSharing(cityId) {
-  const city = cityId && CITY_BY_ID.get(cityId);
-  $("share-open").hidden = !!city;
-  $("sharing").hidden = !city;
-  if (!city) return;
-  $("sharing-city").textContent = label(city);
-  const shown = heat.cities.some(([id]) => id === city.id);
-  $("sharing-note").textContent = shown ? "" : `· shows once ${heat.min}+ people share it`;
+const sharedCity = () => CITY_BY_ID.get(storage(CITY_KEY));
+
+// One place draws sharing state: the footer button, the panel and "you".
+function renderShare() {
+  const city = sharedCity();
+  const mine = city || pluginCity;
+  scene.setSelf(mine?.id);
+  const button = $("share-open");
+  button.textContent = city ? `[ sharing · ${city.name.toLowerCase()} ]` : pluginCity ? `[ on the map · ${pluginCity.name.toLowerCase()} ]` : "[ share my city ]";
+  button.classList.toggle("on", !!mine);
+
+  $("share-toggle").setAttribute("aria-checked", String(!!city));
+  const shown = city && heat.cities.some(([id]) => id === city.id);
+  $("share-meta").textContent = !city
+    ? pluginCity ? `off here · your omarchy bar shares ${pluginCity.name.toLowerCase()}` : "off"
+    : shown ? `sharing ${label(city).toLowerCase()}` : `sharing ${label(city).toLowerCase()} · hidden until 3 are here`;
+  $("share-summary").textContent = `${fmt.format(heat.total)} on the map · ${fmt.format(heat.online || 0)} online · ${fmt.format(heat.cities.length)} cities`;
 }
 
 async function post(path, body) {
@@ -266,69 +317,88 @@ async function post(path, body) {
   return data;
 }
 
-function openPanel() {
-  const current = CITY_BY_ID.get(storage(CITY_KEY));
-  $("city-input").value = current ? label(current) : "";
-  $("share-error").textContent = "";
-  $("panel").showModal();
-  $("city-input").focus();
-}
+const error = (text) => ($("share-error").textContent = text);
 
-$("share-open").addEventListener("click", openPanel);
-$("share-change").addEventListener("click", openPanel);
-
-$("share-stop").addEventListener("click", async () => {
-  try {
-    await post("api/unshare", { id: clientId() });
-    storage(CITY_KEY, null);
-    showSharing(null);
-  } catch (err) {
-    alert(`Could not stop sharing: ${err.message}`);
-  }
-});
-
-$("locate").addEventListener("click", () => {
-  const err = $("share-error");
-  if (!navigator.geolocation) {
-    err.textContent = "geolocation isn't available here, pick a city instead";
-    return;
-  }
-  err.textContent = "locating…";
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      // Snapped locally; the coordinates are dropped right here.
-      const city = nearestCity(pos.coords.latitude, pos.coords.longitude);
-      $("city-input").value = label(city);
-      err.textContent = "";
-    },
-    () => (err.textContent = "couldn't get a location, pick a city instead"),
-    { maximumAge: 3600e3, timeout: 10e3 },
-  );
-});
-
-$("share-form").addEventListener("submit", async (e) => {
-  if (e.submitter?.value !== "share") return;
-  e.preventDefault();
-  const city = byLabel.get($("city-input").value.trim().toLowerCase());
-  if (!city) {
-    $("share-error").textContent = "pick a city from the list";
-    return;
-  }
+async function share(city) {
   try {
     await post("api/share", { id: clientId(), city: city.id });
     storage(CITY_KEY, city.id);
-    showSharing(city.id);
-    scene.pulse(city.id);
-    $("panel").close();
+    $("city-input").value = label(city);
+    error("");
+    pulse(city.id);
   } catch (err) {
-    $("share-error").textContent = err.message;
+    error(err.message);
+  }
+  renderShare();
+}
+
+async function stop() {
+  try {
+    await post("api/unshare", { id: clientId() });
+    storage(CITY_KEY, null);
+    error("");
+  } catch (err) {
+    error(err.message);
+  }
+  renderShare();
+}
+
+// Snapped to a city right here; the coordinates go nowhere.
+function locate() {
+  if (!navigator.geolocation) return Promise.reject(new Error("location isn't available here, pick a city"));
+  error("locating…");
+  return new Promise((resolve, reject) =>
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(nearestCity(pos.coords.latitude, pos.coords.longitude)),
+      () => reject(new Error("couldn't get a location, pick a city")),
+      { maximumAge: 3600e3, timeout: 10e3 },
+    ),
+  ).finally(() => error(""));
+}
+
+$("share-open").addEventListener("click", () => {
+  const current = sharedCity() || pluginCity;
+  $("city-input").value = current ? label(current) : "";
+  error("");
+  renderShare();
+  $("panel").showModal();
+});
+$("panel").querySelector("[data-close]").addEventListener("click", () => $("panel").close());
+
+$("share-help").addEventListener("click", () => {
+  const help = $("share-help-text");
+  help.hidden = !help.hidden;
+  $("share-help").setAttribute("aria-expanded", String(!help.hidden));
+});
+
+$("share-toggle").addEventListener("click", async () => {
+  if (sharedCity()) return stop();
+  const typed = byLabel.get($("city-input").value.trim().toLowerCase());
+  try {
+    await share(typed || (await locate()));
+  } catch (err) {
+    error(err.message);
+  }
+});
+
+$("city-input").addEventListener("change", () => {
+  const city = byLabel.get($("city-input").value.trim().toLowerCase());
+  if (city && sharedCity() && city.id !== sharedCity().id) share(city);
+});
+
+$("locate").addEventListener("click", async () => {
+  try {
+    const city = await locate();
+    $("city-input").value = label(city);
+    if (sharedCity()) share(city);
+  } catch (err) {
+    error(err.message);
   }
 });
 
 // Re-affirm a previous opt-in so the server and this browser agree.
-const saved = storage(CITY_KEY);
-showSharing(saved);
-if (CITY_BY_ID.has(saved)) post("api/share", { id: clientId(), city: saved }).catch(() => {});
+renderShare();
+if (sharedCity()) post("api/share", { id: clientId(), city: sharedCity().id }).catch(() => {});
 
 // ----------------------------------------------------------- about, plugin
 

@@ -85,7 +85,7 @@ export function createMeetupsUi({ onFocus, onFly }) {
     list = meetups.filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon));
     byId = new Map(list.map((m) => [m.id, m]));
     const upcoming = list.filter((m) => isUpcoming(m)).length;
-    $("meetups-open").textContent = `[ meetups · ${upcoming} upcoming ]`;
+    $("meetups-open").textContent = `meetups · ${upcoming} upcoming`;
     $("meetups-open").hidden = list.length === 0;
   }
 

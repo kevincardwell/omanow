@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Omaglobe</title>
-    <meta name="description" content="An opt-in, city-level pixel globe of Omarchy users." />
+    <meta name="description" content="An opt-in, city-level pixel globe of omarchy users." />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <meta property="og:title" content="omaglobe" />
-    <meta property="og:description" content="An opt-in, city-level pixel globe of Omarchy users and meetups." />
+    <meta property="og:description" content="An opt-in, city-level pixel globe of omarchy users and meetups." />
     <meta property="og:image" content="og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preload" href="fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
@@ -15,7 +15,7 @@
   </head>
   <body>
     <main class="stage" id="stage">
-      <canvas id="globe" aria-label="Pixel globe of people sharing their city and Omarchy meetups. Drag or use arrow keys to rotate, scroll or +/- to zoom." tabindex="0"></canvas>
+      <canvas id="globe" aria-label="Pixel globe of people sharing their city and omarchy meetups. Drag or use arrow keys to rotate, scroll or +/- to zoom." tabindex="0"></canvas>
     </main>
 
     <div class="zoom" role="group" aria-label="Zoom">
@@ -37,38 +37,40 @@
         <span class="hint">drag to spin · scroll to zoom</span>
       </div>
 
-      <div class="share" id="share">
-        <button class="btn meetups-btn" id="meetups-open" type="button" hidden>[ meetups ]</button>
-        <button class="btn" id="plugin-open" type="button">[ omarchy plugin ]</button>
+      <nav class="share" id="share">
+        <button class="link meetups-btn" id="meetups-open" type="button" hidden>meetups</button>
+        <button class="link" id="plugin-open" type="button">omarchy plugin</button>
         <button class="link" id="about-open" type="button">about</button>
-        <button class="btn" id="share-open" type="button">[ share my city ]</button>
-
-        <div class="sharing" id="sharing" hidden>
-          <span class="dot live"></span><span>sharing as <b id="sharing-city"></b> <span class="note" id="sharing-note"></span></span>
-          <button class="link" id="share-change" type="button">change</button>
-          <button class="link" id="share-stop" type="button">stop</button>
-        </div>
-      </div>
+        <a class="link" href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github</a>
+        <button class="btn primary" id="share-open" type="button">[ share my city ]</button>
+      </nav>
     </footer>
 
     <dialog class="panel" id="panel">
-      <form method="dialog" id="share-form">
-        <h2>&gt; put your city on the globe</h2>
-        <p class="fine">
-          Only the city you pick is stored, never coordinates. A city shows on the map once
-          3 people share it, and the map updates once a minute so no one can tell when you joined.
-          Stop sharing any time.
-        </p>
-        <label for="city-input">city</label>
-        <input id="city-input" list="city-list" autocomplete="off" spellcheck="false" placeholder="type to search…" required />
-        <datalist id="city-list"></datalist>
-        <button class="link" id="locate" type="button">use my location → nearest city (stays in your browser)</button>
-        <p class="error" id="share-error" role="alert"></p>
-        <div class="actions">
-          <button class="btn" value="cancel" formnovalidate type="submit">[ cancel ]</button>
-          <button class="btn primary" id="share-submit" value="share" type="submit">[ share ]</button>
+      <header class="hero">
+        <div>
+          <h2>share my city</h2>
+          <p class="meta" id="share-meta">off</p>
         </div>
-      </form>
+        <div class="controls">
+          <button class="icon" id="share-help" type="button" aria-expanded="false" title="what gets shared">?</button>
+          <button class="switch" id="share-toggle" type="button" role="switch" aria-checked="false" aria-label="share my city"><span></span></button>
+        </div>
+      </header>
+      <p class="fine" id="share-help-text" hidden>
+        While on, the city you pick and a random id this browser makes are stored, nothing else and never your
+        location. A city shows on the map once 3 people are there, and the map updates once a minute so no one
+        can tell when you joined. Switch it off any time; it also expires 180 days after your last visit.
+      </p>
+      <p class="summary" id="share-summary"></p>
+      <label for="city-input">city</label>
+      <div class="row">
+        <input id="city-input" list="city-list" autocomplete="off" spellcheck="false" placeholder="pick your city" />
+        <button class="icon" id="locate" type="button" title="use my location">⌖</button>
+      </div>
+      <datalist id="city-list"></datalist>
+      <p class="error" id="share-error" role="alert"></p>
+      <div class="actions"><button class="link" data-close type="button">close ×</button></div>
     </dialog>
 
     <dialog class="panel list" id="meetups-list">
@@ -76,21 +78,21 @@
         <h2>&gt; omarchy meetups</h2>
         <button class="link" id="meetups-close" type="button">close ×</button>
       </header>
-      <p class="fine">From <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>, the Omarchy calendar on Luma. Pick one to fly there.</p>
+      <p class="fine">From <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>, the omarchy calendar on luma. Pick one to fly there.</p>
       <div id="meetups-body"></div>
     </dialog>
 
     <dialog class="panel list" id="plugin">
       <header>
-        <h2>&gt; omaglobe in your Omarchy bar</h2>
+        <h2>&gt; omaglobe in your omarchy bar</h2>
         <button class="link" data-close type="button">close ×</button>
       </header>
-      <p class="fine">A globe next to the weather that puts your machine on this map while it's online. Off until you turn it on; only the city you pick is sent.</p>
+      <p class="fine">A globe in your bar that puts your machine on this map while it's online. Off until you switch it on.</p>
       <div class="command">
-        <code id="plugin-command">omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable</code>
+        <code id="plugin-command">omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable &amp;&amp; omarchy bar move io.github.mark-omarov.omaglobe --before omarchy.indicators</code>
         <button class="btn" id="plugin-copy" type="button">[ copy ]</button>
       </div>
-      <p class="fine">Pick the center section when asked. Then click the globe, choose your city and press <b>Show me on the map</b>. Right-click it to open this page in your current Omarchy theme.</p>
+      <p class="fine">Hover the middle of your bar to find the globe, then switch it on. <a href="https://github.com/mark-omarov/omaglobe-plugin" target="_blank" rel="noopener noreferrer">source</a></p>
     </dialog>
 
     <dialog class="panel list" id="about">
@@ -98,12 +100,12 @@
         <h2>&gt; about omaglobe</h2>
         <button class="link" data-close type="button">close ×</button>
       </header>
-      <p>An opt-in map of Omarchy users. A community project, not affiliated with Omarchy, Omacom or 37signals.</p>
+      <p>An opt-in map of omarchy users. A community project, not affiliated with omarchy, omacom or 37signals.</p>
       <h3>privacy</h3>
       <ul class="prose">
         <li>Nothing is collected unless you choose to share. Sharing is off by default.</li>
         <li>Sharing from this page stores a random ID your browser makes (only its hash) and the city you picked. It's kept until you press stop, or 180 days after your last visit.</li>
-        <li>The Omarchy plugin sends a random install ID (stored hashed) and your city once an hour while it's on. It's dropped about an hour after the last one, or when you go offline.</li>
+        <li>The omarchy plugin sends a random install ID (stored hashed) and your city once an hour while it's on. It's dropped about an hour after the last one, or when you go offline.</li>
         <li>No names, accounts, IP addresses, coordinates, cookies or analytics. A city shows only once 3 people are there, and the map updates once a minute so no one can tell when you joined.</li>
         <li>Cloudflare hosts the site and sees connections, as any host does.</li>
       </ul>

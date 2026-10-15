@@ -105,8 +105,6 @@ canvas.dragging { cursor: grabbing; }
 .link { color: var(--fg-dim); text-decoration: underline dotted; margin-left: 10px; padding: 0; }
 .link:hover, .link:focus-visible { color: var(--fg-bright); outline: none; }
 
-.sharing b { color: var(--fg-bright); }
-.sharing .note { color: var(--fg-dim); }
 
 .panel {
   width: min(440px, calc(100vw - 32px));
@@ -131,7 +129,6 @@ canvas.dragging { cursor: grabbing; }
   border-radius: 0;
 }
 .panel input:focus { outline: 1px solid var(--accent); }
-.panel #locate { margin: 10px 0 0; display: block; text-align: left; }
 .panel .error { color: var(--error); min-height: 1.5em; margin: 8px 0 0; }
 .panel .actions { display: flex; justify-content: flex-end; gap: 20px; margin-top: 8px; }
 
@@ -142,8 +139,11 @@ canvas.dragging { cursor: grabbing; }
 
 canvas.pointing { cursor: pointer; }
 
-.share { display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: center; justify-content: flex-end; }
+.share { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; justify-content: flex-end; }
+.share .link { margin: 0; text-decoration: none; }
+.share .link:hover, .share .link:focus-visible { text-decoration: underline dotted; }
 .meetups-btn { color: var(--live); }
+#share-open.on { color: var(--live); }
 
 .zoom {
   position: fixed;
@@ -246,7 +246,39 @@ canvas.pointing { cursor: pointer; }
 .panel.list .prose { list-style: square; padding-left: 18px; }
 .panel.list .prose li { margin: 4px 0; }
 .command { display: flex; gap: 12px; align-items: center; background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; margin: 12px 0; }
-.command code { flex: 1; overflow-x: auto; white-space: nowrap; color: var(--fg-bright); }
+.command code { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--fg-bright); }
 @media (max-width: 560px) {
   .theme { position: static; width: 100%; }
 }
+
+/* Share panel: same shape as the plugin's popup. */
+.panel .hero { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
+.panel .hero h2 { margin: 0; }
+.panel .meta { margin: 2px 0 0; color: var(--fg-dim); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.panel .controls { display: flex; gap: 10px; align-items: center; }
+.panel .summary { margin: 0 0 14px; color: var(--fg); }
+.panel .row { display: flex; gap: 8px; }
+.panel .row input { flex: 1; min-width: 0; }
+.icon {
+  font: inherit;
+  color: var(--fg-bright);
+  background: none;
+  border: 1px solid var(--line);
+  min-width: 34px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.icon:hover, .icon:focus-visible, .icon[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); outline: none; }
+.switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--fg-dim);
+  background: var(--bg);
+  cursor: pointer;
+}
+.switch span { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: var(--fg-dim); transition: left 0.12s, background 0.12s; }
+.switch[aria-checked="true"] { border-color: var(--accent); }
+.switch[aria-checked="true"] span { left: 21px; background: var(--accent); }
+.switch:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
