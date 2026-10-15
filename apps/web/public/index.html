@@ -72,24 +72,23 @@ omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators</pre>
 
     <dialog class="panel list" id="about">
       <header>
-        <h2>&gt; about omaglobe</h2>
+        <h2>&gt; about</h2>
         <button class="link" data-close type="button">close ×</button>
       </header>
-      <p>A map of omarchy machines online, by city, from people who switched the plugin on. A community project, not affiliated with omarchy, omacom or 37signals.</p>
-      <h3>privacy</h3>
+      <p>omaglobe shows omarchy machines that are online right now, by city. Each dot is someone who flipped a switch in their bar. Nobody is on here by accident.</p>
+      <h3>what it knows</h3>
       <ul class="prose">
-        <li>The map shows omarchy machines running the omaglobe plugin with sharing switched on. It's off by default. Visiting this site shares nothing.</li>
-        <li>While on, the plugin sends a random install ID (stored hashed) and the city you picked once an hour. It's dropped about an hour after the last one, or right away when you switch it off.</li>
-        <li>No names, accounts, IP addresses, coordinates, cookies or analytics. A city shows only once 3 machines are there, and the map updates once a minute so no one can tell when you joined.</li>
-        <li>Cloudflare hosts the site and sees connections, as any host does.</li>
+        <li>Your city and a random install id, while your plugin is on. We keep a hash of the id and forget it about an hour after the last check-in, or when you switch off.</li>
+        <li>Nothing else. No names, accounts, IP addresses, coordinates, cookies or analytics. This page shares nothing.</li>
+        <li>A city shows only once three machines are there, and the map moves once a minute, so nobody can tell when you joined.</li>
       </ul>
-      <h3>terms</h3>
+      <h3>the fine print</h3>
       <ul class="prose">
-        <li>Open source under the MIT license. Provided as is, without warranty of any kind. To the extent the law allows, the author is not liable for anything arising from its use.</li>
-        <li>The service may change or go away at any time.</li>
-        <li>Meetups come from <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>; cover images belong to their organizers.</li>
+        <li>A community project, not affiliated with omarchy, omacom or 37signals.</li>
+        <li>Open source under MIT and provided as is, without warranty. To the extent the law allows, nobody behind it is liable for its use. It may change or go away.</li>
+        <li>Meetups come from <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>; covers belong to their organizers.</li>
       </ul>
-      <p class="fine">Source, issues and questions: <a href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github.com/mark-omarov/omaglobe</a></p>
+      <p class="fine">Made by <a href="https://github.com/mark-omarov" target="_blank" rel="noopener noreferrer">Mark Omarov</a>. Code, ideas and bugs: <a href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github</a>.</p>
     </dialog>
 
     <script type="module" src="web/app.js"></script>
