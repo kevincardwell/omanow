@@ -1,0 +1,22 @@
+{
+  "name": "@omaglobe/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "omaglobe website and Cloudflare Worker",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/copy-core.mjs",
+    "dev": "pnpm build && wrangler dev",
+    "demo": "pnpm build && wrangler dev --persist-to .wrangler/demo --var DEMO:1 --var PUBLISH_SECONDS:3",
+    "reset": "node -e \"require('node:fs').rmSync('.wrangler/state', { recursive: true, force: true })\"",
+    "test": "node --test",
+    "deploy": "pnpm build && wrangler deploy"
+  },
+  "dependencies": {
+    "@omaglobe/core": "workspace:*"
+  },
+  "devDependencies": {
+    "wrangler": "4.145.0"
+  }
+}

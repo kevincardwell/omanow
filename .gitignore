@@ -1,3 +1,5 @@
 node_modules/
+.turbo/
 .wrangler/
 .dev.vars*
+apps/web/public/core/

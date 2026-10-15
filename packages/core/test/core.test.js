@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CITIES, nearestCity } from "../src/core/cities.js";
-import { isLand } from "../src/core/land.js";
-import { createScene } from "../src/core/scene.js";
-import { parseColorsToml } from "../src/core/theme.js";
+import { CITIES, nearestCity } from "../src/cities.js";
+import { isLand } from "../src/land.js";
+import { createScene } from "../src/scene.js";
+import { parseColorsToml } from "../src/theme.js";
 
 test("land mask matches known places", () => {
   for (const [lat, lon] of [[52.5, 13.4], [-15, -50], [40, -100], [-25, 135], [-80, 0], [0, 20]]) assert.ok(isLand(lat, lon), `${lat},${lon}`);

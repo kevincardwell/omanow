@@ -2,7 +2,7 @@
 // (omacom/omarchy-site, refreshed daily from the Luma calendar). Normalized
 // to the few fields the globe needs and cached in memory.
 
-import { CITIES } from "../src/core/cities.js";
+import { CITIES } from "@omaglobe/core/cities.js";
 
 export const MEETUPS_URL = "https://raw.githubusercontent.com/omacom/omarchy-site/master/src/data/meetups.json";
 export const MEETUPS_PAGE = "https://omarchy.org/meetups";

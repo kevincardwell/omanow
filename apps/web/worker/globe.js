@@ -1,7 +1,7 @@
 // The one Durable Object behind the globe: opt-ins in SQLite, aggregate heat
 // published on a timer, pushed to viewers over hibernating WebSockets.
 
-import { CITIES, CITY_BY_ID } from "../src/core/cities.js";
+import { CITIES, CITY_BY_ID } from "@omaglobe/core/cities.js";
 
 /** A city appears on the public map only once this many people share it. */
 export const MIN_PEOPLE = 3;

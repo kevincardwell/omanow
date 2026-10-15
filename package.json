@@ -1,25 +1,26 @@
 {
-  "name": "omaglobe",
-  "version": "0.1.0",
+  "name": "omaglobe-monorepo",
   "private": true,
   "type": "module",
-  "description": "Opt-in, city-level pixel-art globe of Omarchy users",
   "license": "MIT",
   "repository": "github:mark-omarov/omaglobe",
+  "packageManager": "pnpm@12.8.2",
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "wrangler dev",
-    "demo": "wrangler dev --persist-to .wrangler/demo --var DEMO:1 --var PUBLISH_SECONDS:3",
-    "deploy": "wrangler deploy",
-    "build:land": "node scripts/build-land.mjs",
-    "test": "node --test",
-    "reset": "node -e \"require('node:fs').rmSync('.wrangler/state', { recursive: true, force: true })\""
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "dev": "pnpm --filter @omaglobe/web dev",
+    "demo": "pnpm --filter @omaglobe/web demo",
+    "reset": "pnpm --filter @omaglobe/web reset",
+    "changeset": "changeset",
+    "version": "changeset version && pnpm --filter @omaglobe/plugin sync-version",
+    "release": "changeset publish"
   },
   "devDependencies": {
-    "topojson-client": "^3.1.0",
-    "world-atlas": "^2.0.2",
-    "wrangler": "4.145.0"
+    "@changesets/changelog-github": "1.0.1",
+    "@changesets/cli": "3.0.3",
+    "turbo": "2.11.5"
   }
 }
