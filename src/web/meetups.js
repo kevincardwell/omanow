@@ -97,7 +97,7 @@ export function createMeetupsUi({ onFocus, onFly }) {
     const upcoming = isUpcoming(m);
     const cover = safeUrl(m.cover, "omarchy.org");
     const link = safeUrl(m.url);
-    const linkHost = link?.hostname.replace(/^www\./, "");
+    const linkSite = link && (link.hostname === "luma.com" ? "Luma" : link.hostname.split(".").at(-2));
     return el(
       "article",
       { className: `event${upcoming ? "" : " past"}` },
@@ -112,7 +112,7 @@ export function createMeetupsUi({ onFocus, onFly }) {
           href: link.href,
           target: "_blank",
           rel: "noopener noreferrer",
-          textContent: `[ open on ${linkHost === "luma.com" ? "Luma" : linkHost} ↗ ]`,
+          textContent: `[ open on ${linkSite} ↗ ]`,
         }),
     );
   }

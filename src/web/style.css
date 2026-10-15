@@ -192,7 +192,7 @@ canvas.pointing { cursor: pointer; }
 .event .meta { color: var(--fg-dim); }
 .event .tag { color: var(--live); font-weight: 700; }
 .event.past .tag { color: var(--fg-dim); }
-.event .btn { display: inline-block; margin-top: 8px; text-decoration: none; }
+.event .btn { display: inline-block; margin-top: 8px; text-decoration: none; white-space: nowrap; }
 
 .panel.list { width: min(560px, calc(100vw - 32px)); max-height: min(720px, calc(100vh - 48px)); }
 .panel.list header { display: flex; justify-content: space-between; align-items: baseline; }
