@@ -18,12 +18,12 @@ export function json(status, data, headers = {}) {
   });
 }
 
-export function publicHeat(counts, min = MIN_PER_CITY) {
+function publicHeat(counts, min = MIN_PER_CITY) {
   const cities = [...counts].filter(([, n]) => n >= min).sort(([a], [b]) => a.localeCompare(b));
   return { total: cities.reduce((sum, [, n]) => sum + n, 0), cities, min };
 }
 
-export function joinsBetween(prev, next) {
+function joinsBetween(prev, next) {
   const before = new Map(prev?.cities || []);
   return next.cities.filter(([city, n]) => n > (before.get(city) || 0)).map(([city]) => city);
 }

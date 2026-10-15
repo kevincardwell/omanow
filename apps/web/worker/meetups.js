@@ -1,6 +1,6 @@
 import { CITIES } from "@omaglobe/core/cities.js";
 
-export const MEETUPS_URL = "https://raw.githubusercontent.com/omacom/omarchy-site/master/src/data/meetups.json";
+const MEETUPS_URL = "https://raw.githubusercontent.com/omacom/omarchy-site/master/src/data/meetups.json";
 export const MEETUPS_PAGE = "https://omarchy.org/meetups";
 const SITE = "https://omarchy.org";
 const TTL_MS = 10 * 60 * 1000;

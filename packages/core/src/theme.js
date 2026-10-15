@@ -1,5 +1,5 @@
 // Keys match omarchy's colors.toml; values are its Tokyo Night.
-export const DEFAULT_THEME = {
+const DEFAULT_THEME = {
   background: "#1a1b26",
   dark_background: "#13141c",
   darker_background: "#0e0e14",

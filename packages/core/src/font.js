@@ -9,7 +9,7 @@ const GLYPHS = {
   E: ["#######", "##.....", "##.....", "######.", "##.....", "##.....", "#######"],
 };
 
-export const GLYPH_H = 7;
+const GLYPH_H = 7;
 
 // Cells and size are in glyph-cell units, not pixels.
 export function layoutText(text, gap = 1) {
