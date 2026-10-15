@@ -17,14 +17,16 @@ const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matc
 const scene = createScene({ autoRotate: !reducedMotion });
 
 // The plugin opens this page with its theme, its city and a sync channel in
-// the fragment, which never reaches the server. Kept for this tab only.
+// the fragment, which never reaches the server. Remembered in this browser so
+// every tab follows the plugin; nothing of it is stored server-side.
+const PLUGIN_KEY = "omaglobe.plugin";
 const fromPlugin = (() => {
   const params = new URLSearchParams(location.hash.slice(1));
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
   const fresh = { theme: params.get("theme"), city: params.get("me"), sync: params.get("sync") };
   try {
-    if (fresh.theme || fresh.city || fresh.sync) sessionStorage.setItem("omaglobe.plugin", JSON.stringify(fresh));
-    return JSON.parse(sessionStorage.getItem("omaglobe.plugin")) || {};
+    if (fresh.sync) localStorage.setItem(PLUGIN_KEY, JSON.stringify(fresh));
+    return JSON.parse(localStorage.getItem(PLUGIN_KEY)) || {};
   } catch {
     return fresh;
   }
@@ -268,9 +270,8 @@ function followPlugin({ theme, me }) {
   if (theme) themes.follow(theme);
   if (me === undefined) return;
   pluginCity = CITY_BY_ID.get(me);
-  try {
-    sessionStorage.setItem("omaglobe.plugin", JSON.stringify({ ...fromPlugin, theme: theme || fromPlugin.theme, city: me }));
-  } catch {}
+  Object.assign(fromPlugin, { theme: theme || fromPlugin.theme, city: me });
+  storage(PLUGIN_KEY, JSON.stringify(fromPlugin));
   renderYou();
 }
 
@@ -278,7 +279,7 @@ function followPlugin({ theme, me }) {
 function renderYou() {
   scene.setSelf(pluginCity?.id);
   const button = $("share-open");
-  button.textContent = pluginCity ? `[ you're on the map · ${pluginCity.name.toLowerCase()} ]` : "[ put your machine on the map ]";
+  button.textContent = pluginCity ? `[ joined · ${pluginCity.name.toLowerCase()} ]` : "[ join ]";
   button.classList.toggle("on", !!pluginCity);
 }
 renderYou();
@@ -294,7 +295,7 @@ $("share-open").addEventListener("click", () => $("plugin").showModal());
 
 $("plugin-copy").addEventListener("click", async () => {
   try {
-    await navigator.clipboard.writeText($("plugin-command").textContent);
+    await navigator.clipboard.writeText($("plugin-command").textContent.trim().split("\n").join(" && "));
     $("plugin-copy").textContent = "[ copied ]";
   } catch {
     getSelection().selectAllChildren($("plugin-command"));

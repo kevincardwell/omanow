@@ -232,8 +232,10 @@ canvas.pointing { cursor: pointer; }
 
 .panel.list .prose { list-style: square; padding-left: 18px; }
 .panel.list .prose li { margin: 4px 0; }
-.command { display: flex; gap: 12px; align-items: center; background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; margin: 12px 0; }
-.command code { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--fg-bright); }
+.panel.list.wide { width: min(720px, calc(100vw - 32px)); }
+.command { position: relative; background: var(--bg); border: 1px solid var(--line); padding: 10px 12px; margin: 12px 0; }
+.command pre { margin: 0; padding-right: 72px; font: inherit; font-size: 12px; color: var(--fg-bright); white-space: pre-wrap; overflow-wrap: anywhere; }
+.command .btn { position: absolute; top: 6px; right: 10px; }
 @media (max-width: 560px) {
   .theme { position: static; width: 100%; }
 }
