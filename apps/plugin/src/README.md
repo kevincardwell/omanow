@@ -6,6 +6,12 @@
 
 <p align="center">A globe in your omarchy bar that puts your machine on the <a href="https://omanow.mark-omarov.workers.dev">omanow</a> map while it's online.</p>
 
+<p align="center">
+  <a href="https://omanow.mark-omarov.workers.dev"><b>Open the map</b></a> ·
+  <a href="https://github.com/mark-omarov/omanow">Source and issues</a> ·
+  <a href="https://plugins.omarchy.org/plugin.html?id=io.github.mark-omarov.omanow">On the plugin marketplace</a>
+</p>
+
 ## Install
 
 ```sh

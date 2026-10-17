@@ -22,6 +22,8 @@ omarchy bar move io.github.mark-omarov.omanow --after omarchy.indicators
 
 Hover the middle of your bar, click the globe, and switch sharing on. Your machine counts toward your city while it's online.
 
+The plugin is published to [mark-omarov/omanow-plugin](https://github.com/mark-omarov/omanow-plugin) from `apps/plugin`.
+
 <p align="center">
   <img src="docs/media/plugin.png" width="342" alt="The omanow popup in the omarchy bar with a sharing switch, a city picker, and an open-the-map button">
 </p>
