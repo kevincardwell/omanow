@@ -112,7 +112,7 @@ export function createPlaces({ scene }) {
     title.textContent = fullName(city);
     dot.className = `dot ${n ? "live" : "quiet"}`;
     statusText.textContent = n ? `${n} online now${you}` : lit ? `on omarchy today${you}` : city === me ? "you" : "not on the map now";
-    why.textContent = n ? "" : lit ? `Count shows at ${heat.min} online.` : city === me ? "On the map within the hour." : "";
+    why.textContent = !n && !lit && city === me ? "on the map within the hour" : "";
     why.hidden = !why.textContent;
     buttons.hidden = !lit;
     count.textContent = note || (waves ? `${waves} ${waves === 1 ? "wave" : "waves"} today` : "");
@@ -129,7 +129,7 @@ export function createPlaces({ scene }) {
       res = await fetch("api/wave", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ city: to, kind }) });
     } catch {}
     if (!res?.ok) echoes = echoes.filter((e) => e !== echo);
-    note = res?.status === 429 ? "Too many waves, try in a minute." : res?.ok ? "" : "Wave failed.";
+    note = res?.status === 429 ? "too many waves, try in a minute" : res?.ok ? "" : "wave failed";
     render();
   }
 
