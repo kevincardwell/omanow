@@ -79,6 +79,7 @@ canvas.dragging { cursor: grabbing; }
 .hud > * { pointer-events: auto; }
 
 .stats b, #total, #cities { color: var(--fg-bright); font-weight: 700; }
+.nowrap { white-space: nowrap; }
 .hint { color: var(--fg-dim); margin-left: 12px; }
 
 .dot {
