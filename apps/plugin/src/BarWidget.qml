@@ -349,7 +349,7 @@ Panel {
         Text {
           visible: text !== ""
           width: parent.width
-          text: Model.wavesTo(omanow.heat, omanow.city)
+          text: Model.summary(omanow.heat)
           color: omanow.foreground
           font.family: omanow.fontFamily
           font.pixelSize: Style.font.bodySmall
@@ -359,7 +359,7 @@ Panel {
         Text {
           visible: text !== ""
           width: parent.width
-          text: Model.summary(omanow.heat)
+          text: Model.wavesTo(omanow.heat, omanow.city)
           color: omanow.foreground
           font.family: omanow.fontFamily
           font.pixelSize: Style.font.bodySmall
