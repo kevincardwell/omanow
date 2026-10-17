@@ -5,7 +5,7 @@
   "version": "0.0.0",
   "author": "Mark Omarov",
   "license": "MIT",
-  "description": "Put this Omarchy machine on the omaglobe map, at city level, while it's online. Off until you turn it on.",
+  "description": "Put this omarchy machine on the omaglobe map, at city level, while it's online.",
   "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "BarWidget.qml"
