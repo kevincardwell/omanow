@@ -99,5 +99,6 @@ const count = (n, one, many) => `${fmt(n)} ${Number(n) === 1 ? one : many}`;
 
 export function summary(heat) {
   if (!heat) return "";
-  return `${count(heat.total, "machine", "machines")} online · ${count(heat.cities ? heat.cities.length : 0, "city", "cities")}`;
+  const cities = heat.today ? `${count(heat.today.length, "city", "cities")} today` : count(heat.cities ? heat.cities.length : 0, "city", "cities");
+  return `${count(heat.total, "machine", "machines")} online · ${cities}`;
 }

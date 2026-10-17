@@ -321,7 +321,7 @@ Panel {
         Text {
           visible: omanow.helpOpen
           width: parent.width
-          text: "While on, this machine's city and a random install id are sent once an hour. Nothing else, never your location. It drops off the map about an hour after it stops, or right away when you switch it off. A city shows on the map once 3 machines are there."
+          text: "While on, this machine's city and a random install id are sent once an hour. Nothing else, never your location. The server forgets the id a day after the last check-in, or when you switch it off. A city gets a count once 3 machines are there."
           color: omanow.dim
           font.family: omanow.fontFamily
           font.pixelSize: Style.font.caption

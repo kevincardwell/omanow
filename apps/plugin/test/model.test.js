@@ -63,5 +63,7 @@ test("summary and options", () => {
   const heat = { total: 1234, cities: [["berlin-de", 4]], min: 3 };
   assert.match(Model.summary(heat), /machines online · 1 city$/);
   assert.equal(Model.summary({ total: 1, cities: [["berlin-de", 1]] }), "1 machine online · 1 city");
+  assert.equal(Model.summary({ total: 6, cities: [], today: ["berlin-de", "oslo-no"] }), "6 machines online · 2 cities today");
+  assert.equal(Model.summary({ total: 1, cities: [], today: ["oslo-no"] }), "1 machine online · 1 city today");
   assert.ok(Model.cityOptions().every((o) => o.value && o.label));
 });
