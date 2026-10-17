@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force:
+        description: Redo a step whose release already happened
+        type: choice
+        options: [nothing, site, plugin, both]
+        default: nothing
 
 concurrency: release
 
@@ -36,14 +42,14 @@ jobs:
           pr-title: "chore: release"
 
       - name: Deploy the site
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omanow/web"')
+        if: (steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omanow/web"')) || inputs.force == 'site' || inputs.force == 'both'
         run: pnpm --filter @omanow/web run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Publish the plugin repo
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omanow/plugin"')
+        if: (steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omanow/plugin"')) || inputs.force == 'plugin' || inputs.force == 'both'
         run: pnpm --filter @omanow/plugin run publish-dist
         env:
           PLUGIN_DEPLOY_KEY: ${{ secrets.PLUGIN_DEPLOY_KEY }}

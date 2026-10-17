@@ -4,6 +4,10 @@
 set -euo pipefail
 
 REPO="${PLUGIN_REPO:-git@github.com:mark-omarov/omanow-plugin.git}"
+export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-github-actions[bot]}"
+export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 cd "$(dirname "$0")/.."
 version=$(node -p 'require("./package.json").version')
 
@@ -27,8 +31,7 @@ if git diff --cached --quiet; then
   echo "plugin repo already at $version"
   exit 0
 fi
-git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-  commit --quiet -m "release: v$version"
+git commit --quiet -m "release: v$version"
 git tag -a "v$version" -m "v$version"
 git push --quiet origin HEAD "v$version"
 echo "published plugin v$version"
