@@ -8,11 +8,11 @@
   "scripts": {
     "build": "node scripts/copy-core.mjs",
     "dev": "pnpm build && wrangler dev",
-    "demo": "pnpm build && wrangler dev --persist-to .wrangler/demo --var DEMO:1 --var PUBLISH_SECONDS:3",
+    "demo": "pnpm build && wrangler dev --persist-to .wrangler/demo --var DEMO:1 --var PUBLISH_SECONDS:3 --var SLOW_SECONDS:10",
     "reset": "node -e \"require('node:fs').rmSync('.wrangler/state', { recursive: true, force: true })\"",
     "test": "node --test",
     "deploy": "pnpm build && wrangler deploy",
-    "dev:solo": "pnpm build && wrangler dev --var MIN_PER_CITY:1 --var PUBLISH_SECONDS:5"
+    "dev:solo": "pnpm build && wrangler dev --var MIN_PER_CITY:1 --var PUBLISH_SECONDS:5 --var SLOW_SECONDS:10"
   },
   "dependencies": {
     "@omanow/core": "workspace:*"

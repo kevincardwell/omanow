@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, mock, test } from "node:test";
-import { Globe, MIN_PER_CITY, HEARTBEAT_TTL_MS } from "../worker/globe.js";
+import { Globe, HEARTBEAT_TTL_MS, HISTORY_DAYS, MIN_PER_CITY, TODAY_MS } from "../worker/globe.js";
 import worker from "../worker/index.js";
 
 globalThis.WebSocketRequestResponsePair ??= class {};
@@ -68,28 +68,34 @@ const call = (path, { body, ip = `10.0.0.${++ipCounter}`, headers = {} } = {}) =
 const heat = () => call("/api/heat").then((r) => r.json());
 const online = (id, city, ip) => call("/api/online", { body: { id, city }, ip });
 const machine = (n) => `machine-${String(n).padStart(12, "0")}`;
-const empty = { total: 0, cities: [], min: MIN_PER_CITY };
+const empty = { total: 0, cities: [], min: MIN_PER_CITY, today: [], waves: [] };
+const HOUR = 3_600_000;
+const viewer = () => {
+  const ws = { sent: [], send: (m) => ws.sent.push(JSON.parse(m)) };
+  ctx.sockets.push(ws);
+  return ws;
+};
 
 test("heat is published on the timer, not per request", async () => {
   for (const n of [1, 2, 3]) await online(machine(n), "berlin-de");
   assert.deepEqual(await heat(), empty);
   assert.ok((await ctx.storage.getAlarm()) > NOW, "a publish is scheduled");
 
-  const viewer = { sent: [], send: (m) => viewer.sent.push(JSON.parse(m)) };
-  ctx.sockets.push(viewer);
+  const page = viewer();
   await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), { total: 3, cities: [["berlin-de", 3]], min: MIN_PER_CITY });
-  assert.deepEqual(viewer.sent, [{ type: "heat", total: 3, cities: [["berlin-de", 3]], min: MIN_PER_CITY, joins: ["berlin-de"] }]);
+  const published = { total: 3, cities: [["berlin-de", 3]], min: MIN_PER_CITY, today: ["berlin-de"], waves: [] };
+  assert.deepEqual(await heat(), published);
+  assert.deepEqual(page.sent, [{ type: "heat", ...published, joins: ["berlin-de"] }]);
 });
 
 test(`cities with fewer than ${MIN_PER_CITY} machines stay off the public map`, async () => {
   await online(machine(1), "tokyo-jp");
   await online(machine(2), "tokyo-jp");
   await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), { ...empty, total: 2 }, "counted, but the city stays unnamed");
+  assert.deepEqual(await heat(), empty, "nothing shows before the hour");
   await online(machine(3), "tokyo-jp");
   await ctx.fireAlarm(globe);
-  assert.deepEqual((await heat()).cities, [["tokyo-jp", 3]]);
+  assert.deepEqual(await heat(), { ...empty, total: 3, cities: [["tokyo-jp", 3]], today: ["tokyo-jp"] });
 
   const local = new Globe(fakeCtx(), { MIN_PER_CITY: "1" });
   env.GLOBE.get = () => local;
@@ -106,24 +112,109 @@ test("moving and going offline keep counts right; raw ids are never stored", asy
   assert.deepEqual(rows.map((r) => r.city), ["lisbon-pt", "porto-pt"]);
   for (const { key } of rows) assert.match(key, /^[0-9a-f]{64}$/);
   assert.ok(!JSON.stringify(rows).includes("machine-"));
-  assert.deepEqual(ctx.db.prepare("SELECT city, n FROM online ORDER BY city").all().map((r) => [r.city, r.n]), [
-    ["lisbon-pt", 1],
-    ["porto-pt", 1],
-  ]);
+  mock.timers.tick(HOUR);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), { ...empty, total: 2, today: ["lisbon-pt", "porto-pt"] });
 });
 
-test("machines drop off when heartbeats stop", async () => {
-  for (const n of [1, 2, 3, 4]) await online(machine(n), "oslo-no");
+test("quiet cities change only on the hour, and leave a day after the last check-in", async () => {
   await ctx.fireAlarm(globe);
-  assert.equal(await ctx.storage.getAlarm(), NOW + 15 * 60_000, "presence is swept every 15 minutes");
+  mock.timers.tick(10 * 60_000);
+  await online(machine(1), "bergen-no");
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), empty, "joined at 12:10, nothing shows before 13:00");
+  assert.equal(await ctx.storage.getAlarm(), NOW + 25 * 60_000, "swept every 15 minutes");
+  mock.timers.tick(40 * 60_000);
+  await ctx.fireAlarm(globe);
+  assert.equal(await ctx.storage.getAlarm(), NOW + HOUR, "and on the hour");
 
-  mock.timers.tick(HEARTBEAT_TTL_MS - 60_000);
-  const beat = await online(machine(1), "oslo-no").then((r) => r.json());
-  assert.equal(beat.heat.total, 4, "a heartbeat returns the published map");
-  mock.timers.tick(2 * 60_000);
+  mock.timers.tick(10 * 60_000);
   await ctx.fireAlarm(globe);
-  assert.deepEqual(ctx.db.prepare("SELECT city, n FROM online").all().map((r) => [r.city, r.n]), [["oslo-no", 1]]);
-  assert.deepEqual((await heat()).cities, []);
+  assert.deepEqual(await heat(), { ...empty, total: 1, today: ["bergen-no"] });
+  mock.timers.tick(20 * 60_000);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), { ...empty, total: 1, today: ["bergen-no"] }, "offline since 13:15, counted until 14:00");
+  mock.timers.tick(40 * 60_000);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), { ...empty, today: ["bergen-no"] });
+
+  mock.timers.tick(TODAY_MS);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), empty);
+  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM presence").get().n, 0, "hashes are gone a day after the last check-in");
+  assert.equal(await ctx.storage.getAlarm(), null, "nothing left to sweep");
+});
+
+test("switching off forgets the hash at once; the map catches up on the hour", async () => {
+  await online(machine(1), "bergen-no");
+  mock.timers.tick(HOUR);
+  await ctx.fireAlarm(globe);
+  mock.timers.tick(10 * 60_000);
+  await call("/api/offline", { body: { id: machine(1) } });
+  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM presence").get().n, 0);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), { ...empty, total: 1, today: ["bergen-no"] });
+  mock.timers.tick(HOUR);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), empty);
+});
+
+test("busy cities stay on the day layer for the rest of the hour", async () => {
+  for (const n of [1, 2, 3]) await online(machine(n), "tokyo-jp");
+  await ctx.fireAlarm(globe);
+  await call("/api/offline", { body: { id: machine(3) } });
+  await ctx.fireAlarm(globe);
+  assert.deepEqual(await heat(), { ...empty, today: ["tokyo-jp"] });
+});
+
+test("history keeps one count per finished day and nothing else", async () => {
+  await online(machine(1), "berlin-de");
+  await online(machine(2), "berlin-de");
+  await online(machine(2), "paris-fr");
+  await online(machine(1), "berlin-de");
+  mock.timers.tick(TODAY_MS - HOUR);
+  for (const n of [1, 3, 4]) await online(machine(n), "berlin-de");
+  assert.deepEqual(ctx.db.prepare("SELECT * FROM daily ORDER BY day").all().map((r) => ({ ...r })), [
+    { day: 20741, n: 2 },
+    { day: 20742, n: 3 },
+  ]);
+  assert.deepEqual(await call("/api/history").then((r) => r.json()), { days: [["2026-10-15", 2]] }, "today shows once it's over");
+
+  mock.timers.tick(HISTORY_DAYS * TODAY_MS);
+  await ctx.fireAlarm(globe);
+  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM daily").get().n, 0, "a year is all that's kept");
+});
+
+test("waves reach every viewer, only for cities on the map", async () => {
+  const wave = (city, kind = "wave", ip) => call("/api/wave", { body: { city, kind }, ip });
+  await online(machine(1), "lima-pe");
+  await ctx.fireAlarm(globe);
+  assert.equal((await wave("lima-pe")).status, 400, "not on the map yet");
+  mock.timers.tick(HOUR);
+  await ctx.fireAlarm(globe);
+  const page = viewer();
+  assert.equal((await wave("lima-pe", "shout")).status, 400, "only the fixed kinds");
+  assert.equal((await wave("lima-pe", "heart")).status, 200);
+  assert.deepEqual(page.sent, [{ type: "wave", city: "lima-pe", kind: "heart" }]);
+
+  const statuses = [];
+  for (let i = 0; i < 11; i++) statuses.push((await wave("lima-pe", "wave", "10.7.7.7")).status);
+  assert.deepEqual(statuses.slice(9), [200, 429]);
+  await ctx.fireAlarm(globe);
+  assert.deepEqual((await heat()).waves, [["lima-pe", 11]], "counted for a day");
+  assert.equal((await call("/api/wave", { body: { city: "lima-pe", kind: "wave" }, headers: { origin: "https://evil.test" } })).status, 403);
+
+  mock.timers.tick(TODAY_MS);
+  await ctx.fireAlarm(globe);
+  assert.equal(ctx.db.prepare("SELECT count(*) AS n FROM waves").get().n, 0);
+});
+
+test("adds since to an existing presence table", async () => {
+  const old = fakeCtx();
+  old.db.exec("CREATE TABLE presence (key TEXT PRIMARY KEY, city TEXT NOT NULL, seen INTEGER NOT NULL) WITHOUT ROWID");
+  old.db.prepare("INSERT INTO presence VALUES ('k', 'oslo-no', 1)").run();
+  new Globe(old, {});
+  assert.deepEqual({ ...old.db.prepare("SELECT * FROM presence").get() }, { key: "k", city: "oslo-no", seen: 1, since: 0 });
 });
 
 test("limits new machines and moves, never plain heartbeats or going offline", async () => {

@@ -6,7 +6,7 @@ import { createMeetupsSource, MEETUPS_PAGE } from "./meetups.js";
 export { Globe } from "./globe.js";
 
 const meetups = createMeetupsSource();
-const GLOBE_PATHS = new Set(["/api/heat", "/api/live", "/api/online", "/api/offline", "/api/sync"]);
+const GLOBE_PATHS = new Set(["/api/heat", "/api/history", "/api/live", "/api/online", "/api/offline", "/api/wave", "/api/sync"]);
 
 function rejectCrossSite(request, url) {
   const origin = request.headers.get("origin");
