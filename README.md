@@ -9,7 +9,8 @@
 <p align="center">
   <a href="https://omanow.mark-omarov.workers.dev"><b>Open the map</b></a> ·
   <a href="#install-the-plugin">Install the plugin</a> ·
-  <a href="#what-it-sends">What it sends</a>
+  <a href="#what-it-sends">What it sends</a> ·
+  <a href="https://plugins.omarchy.org/plugin.html?id=io.github.mark-omarov.omanow">On the plugin marketplace</a>
 </p>
 
 ## Install the plugin
