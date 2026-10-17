@@ -296,3 +296,6 @@ canvas.pointing { cursor: pointer; }
   white-space: nowrap;
 }
 .toast .btn { margin-left: 10px; }
+@media (max-width: 560px) {
+  .toast { top: 92px; }
+}
