@@ -18,9 +18,11 @@ export function json(status, data, headers = {}) {
   });
 }
 
+// The total counts every machine; only cities with enough of them are named.
 function publicHeat(counts, min = MIN_PER_CITY) {
   const cities = [...counts].filter(([, n]) => n >= min).sort(([a], [b]) => a.localeCompare(b));
-  return { total: cities.reduce((sum, [, n]) => sum + n, 0), cities, min };
+  const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
+  return { total, cities, min };
 }
 
 function joinsBetween(prev, next) {

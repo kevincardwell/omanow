@@ -86,7 +86,7 @@ test(`cities with fewer than ${MIN_PER_CITY} machines stay off the public map`, 
   await online(machine(1), "tokyo-jp");
   await online(machine(2), "tokyo-jp");
   await ctx.fireAlarm(globe);
-  assert.deepEqual(await heat(), empty);
+  assert.deepEqual(await heat(), { ...empty, total: 2 }, "counted, but the city stays unnamed");
   await online(machine(3), "tokyo-jp");
   await ctx.fireAlarm(globe);
   assert.deepEqual((await heat()).cities, [["tokyo-jp", 3]]);
