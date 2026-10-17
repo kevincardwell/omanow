@@ -58,7 +58,7 @@ To add it to the omarchy menu under Trigger, then Toggle, put this line in `~/.c
 
 ## What it sends
 
-While sharing is on, the plugin sends the city you picked and a random install id once an hour. The server keeps a hash of the id and deletes it an hour after the last check-in, or as soon as you switch sharing off. If the connection drops, the plugin keeps your setting and retries after 1, 2, 4, and up to 30 minutes.
+While sharing is on, the plugin sends the city you picked and a random install id once an hour. The server keeps a hash of the id and deletes it a day after the last check-in, or as soon as you switch sharing off. If the connection drops, the plugin keeps your setting and retries after 1, 2, 4, and up to 30 minutes.
 
 The plugin keeps its settings in `~/.local/state/omanow/state.json`, outside your dotfiles.
 

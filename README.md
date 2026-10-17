@@ -30,7 +30,14 @@ The plugin is published to [mark-omarov/omanow-plugin](https://github.com/mark-o
 
 ## What's on the map
 
-- A city glows brighter the more machines are online in it. It appears once three machines are there.
+<p align="center">
+  <img src="docs/media/waves.gif" width="480" alt="Waves rising as emoji from cities on the pixel globe">
+</p>
+
+- A city glows brighter the more machines are online in it, with a count once three are there.
+- Smaller cities get a dim dot for a day after their last check-in. They only change on the hour.
+- Click a city to wave at it. Waves are emoji with no text or sender.
+- History shows machines on the map per day over the past year.
 - Green pins mark every omarchy meetup on [omarchy.org/meetups](https://omarchy.org/meetups), past and upcoming. Click one for the date, place, and link.
 - Right-click the globe in your bar to open the map in your current omarchy theme. The open page follows you when you switch themes.
 
@@ -40,10 +47,11 @@ The plugin is published to [mark-omarov/omanow-plugin](https://github.com/mark-o
 
 ## What it sends
 
-Sharing is off until you switch it on, and opening the website sends nothing. While sharing is on, the plugin sends the city you picked and a random install id once an hour. The server keeps a hash of the id and deletes it an hour after the last check-in, or as soon as you switch sharing off.
+Sharing is off until you switch it on, and opening the website sends nothing. While sharing is on, the plugin sends the city you picked and a random install id once an hour. The server keeps a hash of the id and deletes it a day after the last check-in, or as soon as you switch sharing off. It also keeps a count of machines per day.
 
 - omanow stores no names, accounts, IP addresses, coordinates, cookies, or analytics.
-- The map updates once a minute, so a new dot doesn't show when someone joined.
+- Busy cities update once a minute and smaller ones on the hour, so nobody can tell when someone joined.
+- A wave sends only the city and the emoji.
 - The locate button finds the nearest city from your weather setting or your timezone, on your machine.
 
 ## Contribute
