@@ -59,6 +59,14 @@ test("retries back off and cap at 30 minutes", () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((n) => Model.retryDelay(n) / 60000), [1, 2, 4, 8, 16, 30, 30]);
 });
 
+test("waves to your city", () => {
+  const heat = { total: 6, cities: [], today: ["tokyo-jp"], waves: [["tokyo-jp", 3], ["oslo-no", 1]] };
+  assert.equal(Model.wavesTo(heat, "tokyo-jp"), "3 waves to tokyo today");
+  assert.equal(Model.wavesTo(heat, "oslo-no"), "1 wave to oslo today");
+  assert.equal(Model.wavesTo(heat, "berlin-de"), "");
+  assert.equal(Model.wavesTo(null, "tokyo-jp"), "");
+});
+
 test("summary and options", () => {
   const heat = { total: 1234, cities: [["berlin-de", 4]], min: 3 };
   assert.match(Model.summary(heat), /machines online · 1 city$/);
