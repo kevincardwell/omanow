@@ -87,3 +87,25 @@ test("setView places the camera at once", () => {
   assert.ok(Math.abs(tokyo.x) < 1e-9 && Math.abs(tokyo.y) < 1e-9);
   assert.equal(scene.zoom, 3);
 });
+
+test("quiet cities can be picked, and waves float a sprite up from them", () => {
+  const scene = createScene({ autoRotate: false, random: () => 0.5 });
+  scene.resize(400, 240);
+  scene.setView(59.91, 10.75, 3);
+  scene.setHeat([["berlin-de", 5]]);
+  scene.setToday(["oslo-no", "berlin-de", "nowhere"]);
+  scene.tick(1 / 60);
+  const oslo = scene.project(59.91, 10.75);
+  assert.equal(scene.pickCity(oslo.sx + 2, oslo.sy), "oslo-no");
+  assert.equal(scene.pickCity(oslo.sx + 30, oslo.sy + 30), null);
+
+  const red = { width: 2, height: 2, data: new Uint8ClampedArray([255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 0, 255, 0, 0, 255]) };
+  scene.setSprites({ wave: red });
+  scene.wave("oslo-no", "wave");
+  let px;
+  for (let i = 0; i < 20; i++) px = scene.tick(1 / 60);
+  const isRed = (i) => px[i] === 255 && px[i + 1] === 0 && px[i + 2] === 0;
+  assert.ok(px.some((_, i) => i % 4 === 0 && isRed(i)), "the sprite is drawn");
+  for (let i = 0; i < 200; i++) px = scene.tick(1 / 60);
+  assert.ok(!px.some((_, i) => i % 4 === 0 && isRed(i)), "and gone once it has floated away");
+});

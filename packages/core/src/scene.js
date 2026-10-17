@@ -24,6 +24,10 @@ const MAX_ZOOM = 12;
 const LABEL_ZOOM = 1.6;
 const ALL_CITIES_ZOOM = 2.6;
 const PICK_RADIUS = 6;
+const MAX_FLOATS = 24;
+const FLOAT_LIFE = 2.6;
+const QUIET_SIGMA = 1.4;
+const QUIET_AMP = 0.28;
 
 // Colors are [r, g, b]; pixels are packed little-endian ABGR, so a Uint32Array
 // over the RGBA byte buffer writes them in one store.
@@ -142,6 +146,10 @@ export function createScene(options = {}) {
   let particles = [];
   let embers = [];
   let rings = [];
+  let today = [];
+  let quiet = [];
+  let sprites = {};
+  let floats = [];
   let self = null;
   let time = 0;
 
@@ -219,16 +227,31 @@ export function createScene(options = {}) {
     for (const a of active) a.rate *= k;
     for (let i = 0; i < Math.min(MAX_BEACONS, active.length); i++) active[i].beacon = true;
     energy = Math.min(1, Math.log10(1 + total) / 3);
+    updateQuiet();
+  }
+
+  function setToday(ids) {
+    today = [];
+    for (const id of ids) {
+      const city = CITY_BY_ID.get(id);
+      if (city) today.push(city);
+    }
+    updateQuiet();
+  }
+
+  function updateQuiet() {
+    const lit = new Set(active.map((a) => a.city.id));
+    quiet = today.filter((c) => !lit.has(c.id));
     buildHeatField();
   }
 
   function buildHeatField() {
     heatField = new Float32Array(HEAT_W * HEAT_H);
     const cellDeg = 360 / HEAT_W;
-    for (const { city, norm } of active) {
-      const sigmaDeg = 1.1 + 2.1 * norm;
+    const spots = active.map(({ city, norm }) => ({ city, sigmaDeg: 1.1 + 2.1 * norm, amp: 0.3 + 0.7 * norm * norm }));
+    for (const city of quiet) spots.push({ city, sigmaDeg: QUIET_SIGMA, amp: QUIET_AMP });
+    for (const { city, sigmaDeg, amp } of spots) {
       const reach = sigmaDeg * 3;
-      const amp = 0.3 + 0.7 * norm * norm;
       const cosLat = Math.max(0.2, Math.cos(city.lat * DEG));
       const rowMin = Math.max(0, Math.floor((90 - city.lat - reach) / cellDeg));
       const rowMax = Math.min(HEAT_H - 1, Math.ceil((90 - city.lat + reach) / cellDeg));
@@ -257,6 +280,23 @@ export function createScene(options = {}) {
     rings.push({ city, age: 0 });
     const p = project(city.lat, city.lon);
     if (p.z > 0.05 && onScreen(p)) for (let i = 0; i < 14; i++) spawnParticle(p.sx, p.sy, 1, i * 0.035);
+  }
+
+  function setSprites(map) {
+    sprites = {};
+    for (const kind of Object.keys(map || {})) {
+      const { width, height, data } = map[kind];
+      const px = new Uint32Array(width * height);
+      for (let i = 0; i < px.length; i++) if (data[i * 4 + 3] >= 128) px[i] = pack([data[i * 4], data[i * 4 + 1], data[i * 4 + 2]]);
+      sprites[kind] = { w: width, h: height, px };
+    }
+  }
+
+  function wave(cityId, kind) {
+    const city = CITY_BY_ID.get(cityId);
+    if (!city) return;
+    if (floats.length < MAX_FLOATS) floats.push({ city, sprite: sprites[kind] || null, age: 0, drift: (random() - 0.5) * 8 });
+    pulse(cityId);
   }
 
   // [{ id, lat, lon, upcoming, label }]; labels are drawn as plain text.
@@ -294,6 +334,18 @@ export function createScene(options = {}) {
     return hits.sort((a, b) => a.d - b.d).map((h) => h.id);
   }
 
+  function pickCity(sx, sy) {
+    let best = null;
+    let bestD = PICK_RADIUS;
+    for (const city of active.map((a) => a.city).concat(quiet, self ? [self] : [])) {
+      const p = project(city.lat, city.lon);
+      if (p.z < 0.08) continue;
+      const d = Math.hypot(p.sx - sx, p.sy - sy);
+      if (d <= bestD) [best, bestD] = [city.id, d];
+    }
+    return best;
+  }
+
   function rotateBy(dx, dy) {
     const k = 1 / Math.max(1, radiusPx);
     yaw -= dx * k;
@@ -324,17 +376,23 @@ export function createScene(options = {}) {
 
   // Animate so (lat, lon) ends up centered at `toZoom`.
   function flyTo(lat, lon, toZoom = Math.max(zoomTarget, 4)) {
-    let toYaw = lon * DEG;
+    const dist = Math.acos(clamp(Math.sin(pitch) * Math.sin(lat * DEG) + Math.cos(pitch) * Math.cos(lat * DEG) * Math.cos(lon * DEG - yaw), -1, 1));
+    startFlight(lon * DEG, clamp(lat * DEG, -MAX_PITCH, MAX_PITCH), clamp(toZoom, MIN_ZOOM, MAX_ZOOM), 0.8 + dist * 0.6, Math.min(0.6, dist / 2));
+  }
+
+  function glideTo(lat, lon, sx, sy) {
+    const [fromYaw, fromPitch] = [yaw, pitch];
+    if (!orient(lat, lon, sx, sy)) return false;
+    const [toYaw, toPitch] = [yaw, pitch];
+    [yaw, pitch] = [fromYaw, fromPitch];
+    startFlight(toYaw, toPitch, zoom, 0.7, 0);
+    return true;
+  }
+
+  function startFlight(toYaw, toPitch, toZoom, dur, dip) {
     while (toYaw - yaw > Math.PI) toYaw -= TAU;
     while (toYaw - yaw < -Math.PI) toYaw += TAU;
-    const dist = Math.acos(clamp(Math.sin(pitch) * Math.sin(lat * DEG) + Math.cos(pitch) * Math.cos(lat * DEG) * Math.cos(toYaw - yaw), -1, 1));
-    flight = {
-      from: { yaw, pitch, zoom },
-      to: { yaw: toYaw, pitch: clamp(lat * DEG, -MAX_PITCH, MAX_PITCH), zoom: clamp(toZoom, MIN_ZOOM, MAX_ZOOM) },
-      t: 0,
-      dur: 0.8 + dist * 0.6,
-      dip: Math.min(0.6, dist / 2),
-    };
+    flight = { from: { yaw, pitch, zoom }, to: { yaw: toYaw, pitch: toPitch, zoom: toZoom }, t: 0, dur, dip };
     zoomAnchor = null;
     velYaw = velPitch = 0;
     idle = 0;
@@ -508,6 +566,9 @@ export function createScene(options = {}) {
 
     for (const r of rings) r.age += dt;
     rings = rings.filter((r) => r.age < 1.6);
+
+    for (const f of floats) f.age += dt;
+    floats = floats.filter((f) => f.age < FLOAT_LIFE);
   }
 
   function put(x, y, color) {
@@ -751,6 +812,48 @@ export function createScene(options = {}) {
     }
   }
 
+  function renderQuiet() {
+    for (const city of quiet) {
+      const p = project(city.lat, city.lon);
+      if (p.z < 0.08 || !onScreen(p)) continue;
+      const x = Math.round(p.sx);
+      const y = Math.round(p.sy);
+      const age = (((time * 0.25 + city.lat * 0.13 + city.lon * 0.07) % 1) + 1) % 1;
+      if (age < 0.5) {
+        const radius = 2 + age * 10;
+        const n = Math.ceil(radius * TAU);
+        for (let i = 0; i < n; i += 2) {
+          const a = (i / n) * TAU;
+          put(x + Math.cos(a) * radius, y + Math.sin(a) * radius * Math.max(0.35, p.z), palette.heat[1]);
+        }
+      }
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) put(x + dx, y + dy, palette.heat[2]);
+      put(x, y, palette.heat[4]);
+    }
+  }
+
+  function renderFloats() {
+    for (const f of floats) {
+      if (!f.sprite) continue;
+      const p = project(f.city.lat, f.city.lon);
+      if (p.z < 0.08) continue;
+      const t = f.age / FLOAT_LIFE;
+      const { w, h, px } = f.sprite;
+      const ease = 1 - (1 - t) * (1 - t);
+      const x0 = Math.round(p.sx + f.drift * ease - w / 2);
+      const y0 = Math.round(p.sy - 5 - h - ease * 22);
+      const fade = t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
+      for (const o of [1, 0]) {
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const c = px[y * w + x];
+            if (c && fade > bayer(x0 + x, y0 + y)) put(x0 + x + o, y0 + y + o, o ? palette.selfShadow : c);
+          }
+        }
+      }
+    }
+  }
+
   function renderSelf() {
     if (!self) return;
     const p = project(self.lat, self.lon);
@@ -807,10 +910,10 @@ export function createScene(options = {}) {
         candidates.push({ key: m.id, at: m, parts: [{ text: m.label, color: palette.meetup }] });
       }
     }
-    for (const a of active) {
-      if (labelled.has(a.city.id)) continue;
-      labelled.add(a.city.id);
-      candidates.push({ key: a.city.id, at: a.city, parts: cityParts(a.city, palette.label) });
+    for (const city of active.map((a) => a.city).concat(quiet)) {
+      if (labelled.has(city.id)) continue;
+      labelled.add(city.id);
+      candidates.push({ key: city.id, at: city, parts: cityParts(city, palette.label) });
     }
     if (zoom >= ALL_CITIES_ZOOM) {
       for (const c of citiesByWeight) {
@@ -854,10 +957,12 @@ export function createScene(options = {}) {
     renderStars();
     renderGlobe();
     renderRings();
+    renderQuiet();
     renderBeacons();
     renderMarkers();
     renderLabels();
     renderSelf();
+    renderFloats();
     renderParticles();
     renderLogo();
     return pixels;
@@ -877,17 +982,22 @@ export function createScene(options = {}) {
     resize,
     tick,
     setHeat,
+    setToday,
     setTheme,
     setSelf,
     pulse,
+    setSprites,
+    wave,
     setMarkers,
     setHighlight,
     pick,
+    pickCity,
     rotateBy,
     setDragging,
     nudge,
     zoomAt,
     flyTo,
+    glideTo,
     setView,
     project,
     unproject,
