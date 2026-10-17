@@ -1,7 +1,7 @@
 import { decodeTheme, resolveTheme } from "../core/theme.js";
 import { THEMES } from "../core/themes.js";
 
-const KEY = "omaglobe.theme";
+const KEY = "omanow.theme";
 const CUSTOM = "custom";
 const CSS_VARS = {
   "--bg": "darker_background",

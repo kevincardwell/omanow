@@ -1,9 +1,9 @@
 {
-  "name": "@omaglobe/web",
+  "name": "@omanow/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "omaglobe website and Cloudflare Worker",
+  "description": "omanow website and Cloudflare Worker",
   "license": "MIT",
   "scripts": {
     "build": "node scripts/copy-core.mjs",
@@ -15,7 +15,7 @@
     "dev:solo": "pnpm build && wrangler dev --var MIN_PER_CITY:1 --var PUBLISH_SECONDS:5"
   },
   "dependencies": {
-    "@omaglobe/core": "workspace:*"
+    "@omanow/core": "workspace:*"
   },
   "devDependencies": {
     "wrangler": "4.145.0"

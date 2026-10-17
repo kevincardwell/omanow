@@ -3,7 +3,7 @@
 # so that branch must only move on a release.
 set -euo pipefail
 
-REPO="${PLUGIN_REPO:-git@github.com:mark-omarov/omaglobe-plugin.git}"
+REPO="${PLUGIN_REPO:-git@github.com:mark-omarov/omanow-plugin.git}"
 cd "$(dirname "$0")/.."
 version=$(node -p 'require("./package.json").version')
 

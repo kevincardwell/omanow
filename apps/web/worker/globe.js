@@ -1,4 +1,4 @@
-import { CITIES, CITY_BY_ID } from "@omaglobe/core/cities.js";
+import { CITIES, CITY_BY_ID } from "@omanow/core/cities.js";
 
 export const MIN_PER_CITY = 3;
 export const HEARTBEAT_TTL_MS = 65 * 60_000;

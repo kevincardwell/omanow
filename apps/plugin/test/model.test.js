@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decodeTheme } from "@omaglobe/core/theme.js";
+import { decodeTheme } from "@omanow/core/theme.js";
 import * as Model from "../dist/model.mjs";
 
 test("snaps the weather location to a city without sending it", () => {

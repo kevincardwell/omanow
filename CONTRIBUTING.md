@@ -28,7 +28,7 @@ object spread, numeric separators and `catch {}` without a binding.
 
 ```sh
 pnpm dev:solo
-omarchy bar set io.github.mark-omarov.omaglobe server http://localhost:8787
+omarchy bar set io.github.mark-omarov.omanow server http://localhost:8787
 pnpm plugin:install
 ```
 

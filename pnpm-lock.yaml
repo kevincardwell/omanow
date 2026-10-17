@@ -178,13 +178,13 @@ importers:
 
   apps/plugin:
     dependencies:
-      '@omaglobe/core':
+      '@omanow/core':
         specifier: workspace:*
         version: link:../../packages/core
 
   apps/web:
     dependencies:
-      '@omaglobe/core':
+      '@omanow/core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:

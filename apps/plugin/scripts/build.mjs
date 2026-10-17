@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const here = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(here, "dist");
-const core = (file) => fileURLToPath(import.meta.resolve(`@omaglobe/core/${file}`));
+const core = (file) => fileURLToPath(import.meta.resolve(`@omanow/core/${file}`));
 
 rmSync(dist, { recursive: true, force: true });
 cpSync(join(here, "src"), dist, { recursive: true });

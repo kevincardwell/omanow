@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Omaglobe</title>
+    <title>Omanow</title>
     <meta name="description" content="A pixel globe of omarchy machines online, by city, and omarchy meetups." />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <meta property="og:title" content="omaglobe" />
+    <meta property="og:title" content="omanow" />
     <meta property="og:description" content="A pixel globe of omarchy machines online, by city, and omarchy meetups." />
-    <meta property="og:url" content="https://omaglobe.mark-omarov.workers.dev/" />
-    <meta property="og:image" content="https://omaglobe.mark-omarov.workers.dev/og.png" />
+    <meta property="og:url" content="https://omanow.mark-omarov.workers.dev/" />
+    <meta property="og:image" content="https://omanow.mark-omarov.workers.dev/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preload" href="fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="web/style.css" />
@@ -42,7 +42,7 @@
         <button class="link meetups-btn" id="meetups-open" type="button" hidden>meetups</button>
         <button class="link" id="plugin-open" type="button">omarchy plugin</button>
         <button class="link" id="about-open" type="button">about</button>
-        <a class="link" href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github</a>
+        <a class="link" href="https://github.com/mark-omarov/omanow" target="_blank" rel="noopener noreferrer">github</a>
         <button class="btn primary" id="share-open" type="button">[ join ]</button>
       </nav>
     </footer>
@@ -58,16 +58,16 @@
 
     <dialog class="panel list wide" id="plugin">
       <header>
-        <h2>&gt; join omaglobe</h2>
+        <h2>&gt; join omanow</h2>
         <button class="link" data-close type="button">close ×</button>
       </header>
       <p class="fine">Install the plugin: a globe in your omarchy bar that puts your machine on this map while it's online.</p>
       <div class="command">
         <button class="btn" id="plugin-copy" type="button">[ copy ]</button>
-        <pre id="plugin-command">omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
-omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators</pre>
+        <pre id="plugin-command">omarchy plugin add https://github.com/mark-omarov/omanow-plugin --enable
+omarchy bar move io.github.mark-omarov.omanow --after omarchy.indicators</pre>
       </div>
-      <p class="fine">Hover the middle of your bar to find the globe, then switch it on. <a href="https://github.com/mark-omarov/omaglobe-plugin" target="_blank" rel="noopener noreferrer">source</a></p>
+      <p class="fine">Hover the middle of your bar to find the globe, then switch it on. <a href="https://github.com/mark-omarov/omanow-plugin" target="_blank" rel="noopener noreferrer">source</a></p>
       <p class="fine">Already sharing? Open the map once from the globe (right-click it, or <b>open the map</b>) so this browser knows which dot is you. There are no accounts, so that's the only link.</p>
     </dialog>
 
@@ -76,7 +76,7 @@ omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators</pre>
         <h2>&gt; about</h2>
         <button class="link" data-close type="button">close ×</button>
       </header>
-      <p>omaglobe shows omarchy machines that are online right now, by city. Each dot is someone who flipped a switch in their bar. Nobody is on here by accident.</p>
+      <p>omanow shows omarchy machines that are online right now, by city. Each dot is someone who flipped a switch in their bar. Nobody is on here by accident.</p>
       <h3>what it knows</h3>
       <ul class="prose">
         <li>Your city and a random install id, while your plugin is on. We keep a hash of the id and forget it about an hour after the last check-in, or when you switch off.</li>
@@ -89,7 +89,7 @@ omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators</pre>
         <li>Open source under MIT and provided as is, without warranty. To the extent the law allows, nobody behind it is liable for its use. It may change or go away.</li>
         <li>Meetups come from <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>; covers belong to their organizers.</li>
       </ul>
-      <p class="fine">Made by <a href="https://github.com/mark-omarov" target="_blank" rel="noopener noreferrer">Mark Omarov</a>. Code, ideas and bugs: <a href="https://github.com/mark-omarov/omaglobe" target="_blank" rel="noopener noreferrer">github</a>.</p>
+      <p class="fine">Made by <a href="https://github.com/mark-omarov" target="_blank" rel="noopener noreferrer">Mark Omarov</a>. Code, ideas and bugs: <a href="https://github.com/mark-omarov/omanow" target="_blank" rel="noopener noreferrer">github</a>.</p>
     </dialog>
 
     <script type="module" src="web/app.js"></script>

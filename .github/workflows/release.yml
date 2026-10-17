@@ -35,14 +35,14 @@ jobs:
           pr-title: "chore: release"
 
       - name: Deploy the site
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omaglobe/web"')
-        run: pnpm --filter @omaglobe/web run deploy
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omanow/web"')
+        run: pnpm --filter @omanow/web run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Publish the plugin repo
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omaglobe/plugin"')
-        run: pnpm --filter @omaglobe/plugin run publish-dist
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.published-packages, '"@omanow/plugin"')
+        run: pnpm --filter @omanow/plugin run publish-dist
         env:
           PLUGIN_DEPLOY_KEY: ${{ secrets.PLUGIN_DEPLOY_KEY }}

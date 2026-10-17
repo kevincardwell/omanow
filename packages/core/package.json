@@ -1,9 +1,9 @@
 {
-  "name": "@omaglobe/core",
+  "name": "@omanow/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Host-agnostic omaglobe engine: scene, city catalogue, land mask, theme keys",
+  "description": "Host-agnostic omanow engine: scene, city catalogue, land mask, theme keys",
   "license": "MIT",
   "exports": {
     "./*": "./src/*"

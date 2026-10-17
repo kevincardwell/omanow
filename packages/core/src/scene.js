@@ -127,7 +127,7 @@ export function createScene(options = {}) {
   let zoomAnchor = null;
   let flight = null;
 
-  const logoText = layoutText("OMAGLOBE");
+  const logoText = layoutText("OMANOW");
   let logoScale = 2;
   let logoX = 0;
   let logoY = 0;

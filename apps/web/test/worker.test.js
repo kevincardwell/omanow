@@ -58,9 +58,9 @@ afterEach(() => mock.timers.reset());
 
 const call = (path, { body, ip = `10.0.0.${++ipCounter}`, headers = {} } = {}) =>
   worker.fetch(
-    new Request(`https://omaglobe.test${path}`, {
+    new Request(`https://omanow.test${path}`, {
       method: body === undefined ? "GET" : "POST",
-      headers: { "content-type": "application/json", origin: "https://omaglobe.test", "cf-connecting-ip": ip, ...headers },
+      headers: { "content-type": "application/json", origin: "https://omanow.test", "cf-connecting-ip": ip, ...headers },
       body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
     }),
     env,

@@ -15,7 +15,7 @@ const scene = createScene({ autoRotate: !reducedMotion });
 
 // The plugin passes its theme, city and sync id in the fragment, which
 // browsers never send to the server.
-const PLUGIN_KEY = "omaglobe.plugin";
+const PLUGIN_KEY = "omanow.plugin";
 const fromPlugin = (() => {
   const params = new URLSearchParams(location.hash.slice(1));
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);

@@ -1,9 +1,9 @@
 {
-  "name": "@omaglobe/plugin",
+  "name": "@omanow/plugin",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "omaglobe bar widget for the omarchy shell",
+  "description": "omanow bar widget for the omarchy shell",
   "license": "MIT",
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -12,6 +12,6 @@
     "publish-dist": "bash scripts/publish-dist.sh"
   },
   "dependencies": {
-    "@omaglobe/core": "workspace:*"
+    "@omanow/core": "workspace:*"
   }
 }

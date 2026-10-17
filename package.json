@@ -1,9 +1,9 @@
 {
-  "name": "omaglobe-monorepo",
+  "name": "omanow-monorepo",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "repository": "github:mark-omarov/omaglobe",
+  "repository": "github:mark-omarov/omanow",
   "packageManager": "pnpm@12.8.2",
   "engines": {
     "node": ">=22.13"
@@ -11,12 +11,12 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "dev": "pnpm --filter @omaglobe/web dev",
-    "dev:solo": "pnpm --filter @omaglobe/web dev:solo",
-    "demo": "pnpm --filter @omaglobe/web demo",
-    "reset": "pnpm --filter @omaglobe/web reset",
+    "dev": "pnpm --filter @omanow/web dev",
+    "dev:solo": "pnpm --filter @omanow/web dev:solo",
+    "demo": "pnpm --filter @omanow/web demo",
+    "reset": "pnpm --filter @omanow/web reset",
     "changeset": "changeset",
-    "plugin:install": "pnpm --filter @omaglobe/plugin install-local",
+    "plugin:install": "pnpm --filter @omanow/plugin install-local",
     "changeset:version": "changeset version && pnpm install --lockfile-only",
     "changeset:publish": "changeset publish"
   },
