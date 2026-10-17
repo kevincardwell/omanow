@@ -29,6 +29,6 @@ if git diff --cached --quiet; then
 fi
 git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
   commit --quiet -m "release: v$version"
-git tag "v$version"
+git tag -a "v$version" -m "v$version"
 git push --quiet origin HEAD "v$version"
 echo "published plugin v$version"
