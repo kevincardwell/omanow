@@ -11,6 +11,8 @@ const CSS_VARS = {
   "--accent": "accent",
   "--hot": "yellow",
   "--live": "green",
+  "--quiet": "magenta",
+  "--warm": "orange",
   "--panel": "dark_background",
   "--line": "selection",
   "--error": "red",

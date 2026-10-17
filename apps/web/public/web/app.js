@@ -1,7 +1,9 @@
 
 import { CITY_BY_ID } from "../core/cities.js";
 import { createScene } from "../core/scene.js";
-import { createMeetupsUi } from "./meetups.js";
+import { createHistoryUi } from "./days.js";
+import { createMeetupsUi, formatDay } from "./meetups.js";
+import { createPlaces, emojiSprites } from "./places.js";
 import { createThemePicker } from "./themes.js";
 
 const TARGET_FRAMEBUFFER_ROWS = 270;
@@ -12,6 +14,8 @@ const ctx = canvas.getContext("2d");
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scene = createScene({ autoRotate: !reducedMotion });
+scene.setSprites(emojiSprites());
+const places = createPlaces({ scene });
 
 // The plugin passes its theme, city and sync id in the fragment, which
 // browsers never send to the server.
@@ -103,7 +107,7 @@ const release = (e) => {
   if (pointers.size === 0) {
     canvas.classList.remove("dragging");
     scene.setDragging(false);
-    if (press && !press.moved && e.type === "pointerup") meetups.select(scene.pick(...toFramebuffer(e)));
+    if (press && !press.moved && e.type === "pointerup") select(...toFramebuffer(e));
     press = null;
   }
   pinch = 0;
@@ -144,16 +148,51 @@ window.addEventListener("keydown", (e) => {
   else if (e.key === "Escape") meetups.select([]);
 });
 
+function select(sx, sy) {
+  const ids = scene.pick(sx, sy);
+  const city = scene.pickCity(sx, sy);
+  if (!city) {
+    places.close();
+    meetups.select(ids);
+    return;
+  }
+  const here = ids.map((id) => meetups.byId(id)).filter(Boolean);
+  places.open(
+    city,
+    here.map((m) => ({ label: `${m.name} · ${formatDay(m)}`, open: () => meetups.select([m.id]) })),
+    () => meetups.select(ids),
+  );
+  meetups.select([], places.section);
+  requestAnimationFrame(() => keepClear(CITY_BY_ID.get(city)));
+}
+
+function keepClear(city) {
+  const card = $("meetup-card").getBoundingClientRect();
+  const view = canvas.getBoundingClientRect();
+  const p = scene.project(city.lat, city.lon);
+  const x = view.left + p.sx * scale;
+  const y = view.top + p.sy * scale;
+  if (x < card.left - 16 || x > card.right + 16 || y < card.top - 100 || y > card.bottom + 16) return;
+  const above = card.left < window.innerWidth / 3;
+  for (const gap of [110, 80, 50]) {
+    const [gx, gy] = above ? [Math.min(Math.max(x, 80), window.innerWidth - 80), card.top - gap] : [card.left - gap, y];
+    if (scene.glideTo(city.lat, city.lon, (gx - view.left) / scale, (gy - view.top) / scale)) return;
+  }
+}
+
 const tip = $("tip");
 function hover(e) {
-  const ids = e ? scene.pick(...toFramebuffer(e)) : [];
+  const at = e ? toFramebuffer(e) : null;
+  const ids = at ? scene.pick(...at) : [];
+  const city = at && !ids.length ? scene.pickCity(...at) : null;
   scene.setHighlight({ hover: ids });
-  canvas.classList.toggle("pointing", ids.length > 0);
-  if (!ids.length) {
+  canvas.classList.toggle("pointing", ids.length > 0 || city !== null);
+  const lines = city ? [places.describe(city)] : ids.slice(0, 3).map((id) => meetups.byId(id)?.name ?? "");
+  if (!lines.length) {
     tip.hidden = true;
     return;
   }
-  tip.replaceChildren(...ids.slice(0, 3).map((id) => Object.assign(document.createElement("div"), { textContent: meetups.byId(id)?.name ?? "" })));
+  tip.replaceChildren(...lines.map((text) => Object.assign(document.createElement("div"), { textContent: text })));
   if (ids.length > 3) tip.append(Object.assign(document.createElement("div"), { className: "more", textContent: `+${ids.length - 3} more` }));
   tip.hidden = false;
   tip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
@@ -161,9 +200,10 @@ function hover(e) {
 }
 
 const meetups = createMeetupsUi({
-  onFocus: (ids) => {
+  onFocus: (ids, open) => {
+    if (!open || !places.section.isConnected) places.close();
     scene.setHighlight({ select: ids });
-    scene.setAutoRotate(!reducedMotion && ids.length === 0);
+    scene.setAutoRotate(!reducedMotion && !open);
   },
   onFly: (m) => scene.flyTo(m.lat, m.lon, 5),
 });
@@ -182,20 +222,22 @@ loadMeetups();
 setInterval(loadMeetups, 10 * 60 * 1000);
 
 const fmt = new Intl.NumberFormat();
-let heat = { total: 0, cities: [], min: 3 };
+let heat = { total: 0, cities: [], min: 3, today: [], waves: [] };
 
 // Pulses queued in a background tab would all fire at once on return.
 const pulse = (city) => document.hidden || scene.pulse(city);
 
 function applyHeat(data) {
-  heat = data;
-  scene.setHeat(data.cities);
-  $("total").textContent = fmt.format(data.total);
-  $("cities").textContent = fmt.format(data.cities.length);
-  $("total-label").textContent = data.total === 1 ? "omarchy machine" : "omarchy machines";
-  $("cities-label").textContent = data.cities.length === 1 ? "city" : "cities";
+  heat = { ...data, today: data.today || data.cities.map(([city]) => city), waves: data.waves || [] };
+  scene.setHeat(heat.cities);
+  scene.setToday(heat.today);
+  $("total").textContent = fmt.format(heat.total);
+  $("cities").textContent = fmt.format(heat.today.length);
+  $("total-label").textContent = heat.total === 1 ? "omarchy machine" : "omarchy machines";
+  $("cities-label").textContent = heat.today.length === 1 ? "city" : "cities";
   // Joins arrive batched; spread them out.
   if (!document.hidden) for (const city of data.joins || []) setTimeout(() => pulse(city), Math.random() * 20_000);
+  places.setHeat(heat);
   renderYou();
 }
 
@@ -221,6 +263,7 @@ function connect() {
     const msg = JSON.parse(e.data);
     if (msg.type === "heat") applyHeat(msg);
     if (msg.type === "sync") followPlugin(msg);
+    if (msg.type === "wave") places.received(msg);
   });
   ws.addEventListener("close", () => {
     clearInterval(ping);
@@ -235,7 +278,7 @@ connect();
 window.addEventListener("online", () => live.ws || connect());
 
 setInterval(() => {
-  if (heat.cities.length) pulse(heat.cities[Math.floor(Math.random() * heat.cities.length)][0]);
+  if (heat.today.length) pulse(heat.today[Math.floor(Math.random() * heat.today.length)]);
 }, 8000);
 
 function storage(key, value) {
@@ -261,6 +304,7 @@ function followPlugin({ theme, me }) {
 
 function renderYou() {
   scene.setSelf(pluginCity?.id);
+  places.setMe(pluginCity?.id);
   const button = $("share-open");
   button.textContent = pluginCity ? `[ joined · ${pluginCity.name.toLowerCase()} ]` : "[ join ]";
   button.classList.toggle("on", !!pluginCity);
@@ -273,6 +317,7 @@ for (const name of ["about", "plugin"]) {
   dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
 }
 $("share-open").addEventListener("click", () => $("plugin").showModal());
+createHistoryUi();
 
 $("plugin-copy").addEventListener("click", async () => {
   try {

@@ -26,6 +26,11 @@
 
     <div class="tip" id="tip" hidden></div>
 
+    <div class="toast" id="toast" role="status" hidden>
+      <span id="toast-text"></span>
+      <button class="btn primary" id="toast-wave" type="button">[ wave 👋 ]</button>
+    </div>
+
     <aside class="card" id="meetup-card" aria-label="Meetup details" hidden>
       <button class="link close" id="meetup-card-close" type="button" aria-label="Close">close ×</button>
       <div id="meetup-card-body"></div>
@@ -34,12 +39,13 @@
     <footer class="hud">
       <label class="theme">theme <select id="theme" aria-label="Theme"></select></label>
       <div class="stats" aria-live="polite">
-        <span class="dot"></span><span id="total">0</span> <span id="total-label">omarchy machines</span> online · <span id="cities">0</span> <span id="cities-label">cities</span>
-        <span class="hint">drag to spin · scroll to zoom</span>
+        <span class="dot"></span><span id="total">0</span> <span id="total-label">omarchy machines</span> online · <span id="cities">0</span> <span id="cities-label">cities</span> today
+        <span class="hint">drag to spin · scroll to zoom · click a city to wave</span>
       </div>
 
       <nav class="share" id="share">
         <button class="link meetups-btn" id="meetups-open" type="button" hidden>meetups</button>
+        <button class="link" id="history-open" type="button">history</button>
         <button class="link" id="plugin-open" type="button">omarchy plugin</button>
         <button class="link" id="about-open" type="button">about</button>
         <a class="link" href="https://github.com/mark-omarov/omanow" target="_blank" rel="noopener noreferrer">github</a>
@@ -54,6 +60,15 @@
       </header>
       <p class="fine">From <a href="https://omarchy.org/meetups" target="_blank" rel="noopener noreferrer">omarchy.org/meetups</a>, the omarchy calendar on luma. Pick one to fly there.</p>
       <div id="meetups-body"></div>
+    </dialog>
+
+    <dialog class="panel list wide" id="history">
+      <header>
+        <h2>&gt; history</h2>
+        <button class="link" data-close type="button">close ×</button>
+      </header>
+      <p class="fine">Machines on the map each day over the past year, in UTC.</p>
+      <div id="history-body"></div>
     </dialog>
 
     <dialog class="panel list wide" id="plugin">
@@ -79,9 +94,11 @@ omarchy bar move io.github.mark-omarov.omanow --after omarchy.indicators</pre>
       <p>omanow shows omarchy machines that are online right now, by city. Each dot is someone who flipped a switch in their bar. Nobody is on here by accident.</p>
       <h3>what it knows</h3>
       <ul class="prose">
-        <li>Your city and a random install id, while your plugin is on. We keep a hash of the id and forget it about an hour after the last check-in, or when you switch off.</li>
-        <li>Nothing else. No names, accounts, IP addresses, coordinates, cookies or analytics. This page shares nothing.</li>
-        <li>A city shows only once three machines are there, and the map moves once a minute, so nobody can tell when you joined.</li>
+        <li>Your city and a random install id, while your plugin is on. We keep a hash of the id and forget it a day after the last check-in, or when you switch off.</li>
+        <li>A count of machines per day, for the history.</li>
+        <li>Nothing else. No names, accounts, IP addresses, coordinates, cookies or analytics. This page sends nothing but waves.</li>
+        <li>A city gets a count once three machines are there. Smaller ones show as a dim dot and only change on the hour, so nobody can tell when you joined.</li>
+        <li>Waves carry no text and no sender.</li>
       </ul>
       <h3>the fine print</h3>
       <ul class="prose">

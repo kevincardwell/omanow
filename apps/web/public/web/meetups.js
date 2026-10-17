@@ -2,7 +2,7 @@
 
 const $ = (id) => document.getElementById(id);
 
-const el = (tag, props = {}, ...children) => {
+export const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children.filter((c) => c != null && c !== false));
   return node;
@@ -21,7 +21,7 @@ function formatWhen(m) {
   }
 }
 
-function formatDay(m) {
+export function formatDay(m) {
   const start = new Date(m.start);
   try {
     return start.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: m.timezone || undefined });
@@ -48,7 +48,7 @@ const regions = (() => {
   }
 })();
 
-const countryName = (code) => {
+export const countryName = (code) => {
   try {
     return (code && regions?.of(code)) || code;
   } catch {
@@ -116,17 +116,17 @@ export function createMeetupsUi({ onFocus, onFly }) {
     );
   }
 
-  function select(ids) {
+  function select(ids, lead = null) {
     const events = ids.map((id) => byId.get(id)).filter(Boolean);
-    if (!events.length) {
+    if (!events.length && !lead) {
       card.hidden = true;
-      onFocus([]);
+      onFocus([], false);
       return;
     }
-    body.replaceChildren(...events.map(renderEvent));
+    body.replaceChildren(...[lead, ...events.map(renderEvent)].filter(Boolean));
     card.hidden = false;
     card.scrollTop = 0;
-    onFocus(events.map((m) => m.id));
+    onFocus(events.map((m) => m.id), true);
   }
 
   function renderList() {
