@@ -146,6 +146,7 @@ export function createScene(options = {}) {
   let time = 0;
 
   let markers = [];
+  let shownLabels = new Map();
   let hovered = new Set();
   let selected = new Set();
   const cityLabels = new Map(CITIES.map((c) => [c.id, foldLabel(c.name)]));
@@ -777,22 +778,64 @@ export function createScene(options = {}) {
     }
   }
 
+  // Labels shown last frame are placed first and keep their side, so they
+  // don't flicker or swap sides as the globe turns.
   function renderLabels() {
-    if (zoom < LABEL_ZOOM) return;
+    if (zoom < LABEL_ZOOM) {
+      shownLabels = new Map();
+      return;
+    }
     const taken = [[logoX - 2, logoY - 2, logoX + logoText.width * logoScale + 2, logoY + logoText.height * logoScale + 2]];
     const budget = Math.round(10 + (zoom - LABEL_ZOOM) * 9);
-    let placed = 0;
+    const counts = new Map(active.map((a) => [a.city.id, a.count]));
+    const cityParts = (city, color) => {
+      const parts = [{ text: cityLabels.get(city.id), color }];
+      if (counts.has(city.id)) parts.push({ text: String(counts.get(city.id)), color: palette.labelCount });
+      return parts;
+    };
 
-    const tryPlace = (p, parts, dot) => {
-      if (p.z < 0.25 || !onScreen(p)) return;
+    const candidates = [];
+    const labelled = new Set();
+    for (const m of markers) {
+      if (!m.upcoming) continue;
+      if (m.cityId) {
+        if (labelled.has(m.cityId)) continue;
+        labelled.add(m.cityId);
+        const city = CITY_BY_ID.get(m.cityId);
+        candidates.push({ key: city.id, at: city, parts: cityParts(city, palette.meetup) });
+      } else if (m.label) {
+        candidates.push({ key: m.id, at: m, parts: [{ text: m.label, color: palette.meetup }] });
+      }
+    }
+    for (const a of active) {
+      if (labelled.has(a.city.id)) continue;
+      labelled.add(a.city.id);
+      candidates.push({ key: a.city.id, at: a.city, parts: cityParts(a.city, palette.label) });
+    }
+    if (zoom >= ALL_CITIES_ZOOM) {
+      for (const c of citiesByWeight) {
+        if (labelled.has(c.id)) continue;
+        candidates.push({ key: c.id, at: c, parts: [{ text: cityLabels.get(c.id), color: palette.labelDim }], dot: palette.cityDot });
+      }
+    }
+    candidates.sort((a, b) => shownLabels.has(b.key) - shownLabels.has(a.key));
+
+    const shown = new Map();
+    for (const { key, at, parts, dot } of candidates) {
+      if (shown.size >= budget) break;
+      const p = project(at.lat, at.lon);
+      if (p.z < 0.25 || !onScreen(p)) continue;
       const width = parts.reduce((w, part) => w + microWidth(part.text) + (w ? 4 : 0), 0);
       const x = Math.round(p.sx);
       const y = Math.round(p.sy);
-      for (const lx of [x + 4, x - 4 - width]) {
+      const sides = shownLabels.get(key) === "left" ? ["left", "right"] : ["right", "left"];
+      for (const side of sides) {
+        const lx = side === "right" ? x + 4 : x - 4 - width;
         const rect = [lx - 1, y - 3, lx + width + 1, y + MICRO_H - 1];
         if (rect[0] < 1 || rect[2] >= W - 1 || rect[1] < 1 || rect[3] >= H - 1) continue;
         if (taken.some((t) => rect[0] <= t[2] && rect[2] >= t[0] && rect[1] <= t[3] && rect[3] >= t[1])) continue;
         taken.push(rect);
+        shown.set(key, side);
         if (dot) put(x, y, dot);
         let cx0 = lx;
         for (const part of parts) {
@@ -800,43 +843,10 @@ export function createScene(options = {}) {
           drawMicro(part.text, cx0, y - 2, (px, py) => put(px, py, part.color));
           cx0 += microWidth(part.text) + 4;
         }
-        placed++;
-        return;
-      }
-    };
-
-    const counts = new Map(active.map((a) => [a.city.id, a.count]));
-    const labelled = new Set();
-    const cityParts = (city, color) => {
-      const parts = [{ text: cityLabels.get(city.id), color }];
-      if (counts.has(city.id)) parts.push({ text: String(counts.get(city.id)), color: palette.labelCount });
-      return parts;
-    };
-
-    for (const m of markers) {
-      if (placed >= budget) return;
-      if (!m.upcoming) continue;
-      if (m.cityId) {
-        if (labelled.has(m.cityId)) continue;
-        labelled.add(m.cityId);
-        const city = CITY_BY_ID.get(m.cityId);
-        tryPlace(project(city.lat, city.lon), cityParts(city, palette.meetup));
-      } else if (m.label) {
-        tryPlace(project(m.lat, m.lon), [{ text: m.label, color: palette.meetup }]);
+        break;
       }
     }
-    for (const a of active) {
-      if (placed >= budget) return;
-      if (labelled.has(a.city.id)) continue;
-      labelled.add(a.city.id);
-      tryPlace(project(a.city.lat, a.city.lon), cityParts(a.city, palette.label));
-    }
-    if (zoom < ALL_CITIES_ZOOM) return;
-    for (const c of citiesByWeight) {
-      if (placed >= budget) return;
-      if (labelled.has(c.id)) continue;
-      tryPlace(project(c.lat, c.lon), [{ text: cityLabels.get(c.id), color: palette.labelDim }], palette.cityDot);
-    }
+    shownLabels = shown;
   }
 
   function render() {
