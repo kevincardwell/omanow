@@ -1,35 +1,48 @@
-# omaglobe for omarchy
+<h1 align="center">omaglobe for omarchy</h1>
 
-A globe in your bar that puts your machine on the
-[omaglobe](https://omaglobe.mark-omarov.workers.dev) map while it's online.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mark-omarov/omaglobe/main/docs/media/hero.gif" width="720" alt="A pixel-art globe turning slowly, with glowing cities streaming particles into the OMAGLOBE wordmark">
+</p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/mark-omarov/omaglobe/main/docs/media/plugin.png" alt="The omaglobe popup: a share switch, the city, and an open-the-map button" width="342"></p>
+<p align="center">A globe in your omarchy bar that puts your machine on the <a href="https://omaglobe.mark-omarov.workers.dev">omaglobe</a> map while it's online.</p>
+
+## Install
 
 ```sh
 omarchy plugin add https://github.com/mark-omarov/omaglobe-plugin --enable
 omarchy bar move io.github.mark-omarov.omaglobe --after omarchy.indicators
 ```
 
-It stays hidden like the indicators until you hover the middle of the bar.
-Once you're sharing it stays put.
+The globe stays hidden like the indicators. Hover the middle of your bar to find it.
 
-## Using it
+## Use
 
-Click the globe, pick your city, flip the switch. Locate (the crosshair)
-fills in the nearest city from your weather setting, or your timezone if the
-weather has no place saved. Right-click the globe to open the map in your
-current theme; it follows when you switch themes.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mark-omarov/omaglobe/main/docs/media/plugin.png" width="342" alt="The omaglobe popup with a sharing switch, a city picker, and an open-the-map button">
+</p>
 
-From the keyboard, with the popup open: `enter` shares, `l` locates, `o`
-opens the map, `?` explains, `esc` closes. Without it:
+1. Click the globe.
+2. Pick your city, or press the crosshair to use the nearest city from your weather setting or timezone.
+3. Switch sharing on.
+
+Right-click the globe to open the map in your current omarchy theme.
+
+| Key, with the popup open | Action |
+|---|---|
+| `enter` or `s` | Switch sharing on or off |
+| `l` | Locate |
+| `o` | Open the map |
+| `?` | Show what gets shared |
+| `esc` | Close |
+
+From a script or keybinding:
 
 ```sh
 omarchy-shell omaglobe toggleSharing
 omarchy-shell omaglobe toggle
 ```
 
-Want it in the omarchy menu, next to Stay Awake? Add this to
-`~/.config/omarchy/extensions/omarchy-menu.jsonc`:
+To add it to the omarchy menu under Trigger, then Toggle, put this line in `~/.config/omarchy/extensions/omarchy-menu.jsonc`:
 
 ```jsonc
 "trigger.toggle.omaglobe": {"icon":"󰇧","label":"omaglobe","action":"omarchy-shell -q omaglobe toggleSharing","checked":"jq -e .online ~/.local/state/omaglobe/state.json >/dev/null 2>&1"},
@@ -37,13 +50,9 @@ Want it in the omarchy menu, next to Stay Awake? Add this to
 
 ## What it sends
 
-The city you picked and a random install id, once an hour, while it's on.
-Nothing else. The server keeps a hash of the id and forgets it about an hour
-after the last check-in, or the moment you switch off. If your connection
-drops, it keeps your setting and tries again a little later each time.
+While sharing is on, the plugin sends the city you picked and a random install id once an hour. The server keeps a hash of the id and deletes it an hour after the last check-in, or as soon as you switch sharing off. If the connection drops, the plugin keeps your setting and retries after 1, 2, 4, and up to 30 minutes.
 
-Your settings live in `~/.local/state/omaglobe/state.json`, out of your
-dotfiles.
+The plugin keeps its settings in `~/.local/state/omaglobe/state.json`, outside your dotfiles.
 
 ## Uninstall
 
@@ -52,6 +61,4 @@ omarchy plugin remove io.github.mark-omarov.omaglobe
 rm -r ~/.local/state/omaglobe
 ```
 
-Source, issues and the rest of omaglobe:
-[mark-omarov/omaglobe](https://github.com/mark-omarov/omaglobe). This repo is
-built from there on each release. MIT.
+Source and issues are at [mark-omarov/omaglobe](https://github.com/mark-omarov/omaglobe). This repository is built from it on each release. MIT license.

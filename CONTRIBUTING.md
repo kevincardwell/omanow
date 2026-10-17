@@ -9,8 +9,8 @@ pnpm dev:solo        # real data; one machine is enough to show up
 pnpm test
 ```
 
-`pnpm dev` is the real thing: a city needs three machines and the map moves
-once a minute. `pnpm reset` wipes local data.
+`pnpm dev` runs with the production rules. A city needs three machines, and
+the map updates once a minute. `pnpm reset` deletes local data.
 
 ## Where things are
 
